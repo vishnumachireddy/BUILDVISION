@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-multipart
+# psycopg2-binary # for postgres later
+shapely
+reportlab
+python-jose[cryptography]
+passlib[bcrypt]
+sqlalchemy
+groq
