@@ -92,6 +92,28 @@ def calculate_perimeter(coords: List[List[float]]) -> float:
         perimeter += haversine_distance(coords[i], coords[j])
     return perimeter
 
+def project_coordinates(coords: List[List[float]]) -> List[Tuple[float, float]]:
+    """
+    Project Lat/Lng to local Meters relative to the first point.
+    Returns (x, y) where x is Easting, y is Northing.
+    """
+    if not coords: return []
+    origin_lat, origin_lon = coords[0]
+    projected = []
+    
+    for lat, lon in coords:
+        # Distance North/South: dy
+        dy = haversine_distance([origin_lat, origin_lon], [lat, origin_lon])
+        if lat < origin_lat: dy = -dy
+        
+        # Distance East/West: dx
+        dx = haversine_distance([origin_lat, origin_lon], [origin_lat, lon])
+        if lon < origin_lon: dx = -dx
+        
+        projected.append((dx, dy))
+    
+    return projected
+
 def validate_polygon(area_sqft: float, perimeter_ft: float) -> List[str]:
     warnings = []
     if area_sqft < 300:

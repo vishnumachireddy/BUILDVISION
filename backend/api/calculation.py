@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from typing import Dict, List
+from fastapi import APIRouter, HTTPException, Body
+from pydantic import BaseModel
 from schemas.polygon import PolygonRequest, AreaResponse
 from services.geometry import calculate_polygon_area, calculate_perimeter, validate_polygon
+from services.rates import update_district_rate
 
 router = APIRouter()
 
@@ -37,3 +40,18 @@ def get_area(request: PolygonRequest):
         buildable_area_sqft=round(buildable_area, 2),
         warnings=warnings
     )
+
+class RateUpdateRequest(BaseModel):
+    state: str
+    district: str
+    rates: Dict[str, float]
+
+@router.post("/update-material-rate")
+def update_rate(request: RateUpdateRequest):
+    try:
+        success = update_district_rate(request.state, request.district, request.rates)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update rates")
+        return {"message": f"Rates updated successfully for {request.district}, {request.state}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,9 +1,13 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 class PolygonRequest(BaseModel):
     coordinates: List[List[float]] = Field(..., description="List of [lat, lng] pairs")
     floors: int = Field(1, ge=1, le=10, description="Number of floors (1-10)")
+    state: Optional[str] = None
+    district: Optional[str] = None
+    quality_mode: str = "Standard"
+    soil_type: str = "Normal Red Soil"
 
     @field_validator('coordinates')
     def check_min_points(cls, v):

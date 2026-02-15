@@ -108,6 +108,26 @@ def generate_pdf_report(project_data: dict, output_path: str):
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
     ]))
     elements.append(ct)
+    elements.append(Spacer(1, 24))
+
+    # Soil Advisory
+    if project_data.get('soil_advisory'):
+        elements.append(Paragraph("Geotechnical Advisory (Soil)", styles['Heading2']))
+        soil = project_data['soil_advisory']
+        advisory_text = [
+            f"<b>Soil Profile:</b> {soil.get('soil_type', 'Selected Profile')}",
+            f"<b>Max Recommended Storeys:</b> {soil.get('safe_floors')}",
+            f"<b>Foundation Type:</b> {soil.get('foundation')}",
+            f"<b>Risk Level:</b> {soil.get('risk')}",
+            f"<b>Notes:</b> {soil.get('note')}"
+        ]
+        for line in advisory_text:
+            elements.append(Paragraph(line, styles['Normal']))
+            elements.append(Spacer(1, 4))
+        
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("<b>Disclaimer:</b> Site-specific soil testing by certified engineer required.", 
+                                 ParagraphStyle('Disclaimer', parent=styles['Normal'], textColor=colors.red)))
 
     doc.build(elements)
     return output_path

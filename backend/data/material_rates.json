@@ -1,0 +1,579 @@
+{
+  "Maharashtra": {
+    "Mumbai": {
+      "cement": 450,
+      "steel": 80,
+      "sand": 1800,
+      "aggregate": 1400,
+      "bricks": 15,
+      "labor_index": 1.2,
+      "last_updated": "2026-02-15",
+      "cement_bag": 550.0,
+      "steel_kg": 85.0
+    },
+    "Pune": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1300,
+      "bricks": 13,
+      "labor_index": 1.1,
+      "last_updated": "2026-02-15"
+    }
+  },
+  "Karnataka": {
+    "Bangalore": {
+      "cement": 440,
+      "steel": 82,
+      "sand": 1700,
+      "aggregate": 1350,
+      "bricks": 14,
+      "labor_index": 1.15,
+      "last_updated": "2026-02-15"
+    }
+  },
+  "Andhra Pradesh": {
+    "Anantapur": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Chittoor": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "East Godavari": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Guntur": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Krishna": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Kurnool": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Prakasam": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Srikakulam": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nellore": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Visakhapatnam": {
+      "cement": 460,
+      "steel": 84,
+      "sand": 1900,
+      "aggregate": 1450,
+      "bricks": 15,
+      "labor_index": 1.25,
+      "last_updated": "2026-02-15"
+    },
+    "Vizianagaram": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "West Godavari": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "YSR Kadapa": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Parvathipuram Manyam": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Alluri Sitharama Raju": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Anakapalli": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Kakinada": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Konaseema": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Eluru": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "NTR": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Bapatla": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Palnadu": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nandyal": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Sri Sathya Sai": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Annamayya": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Tirupati": {
+      "cement": 460,
+      "steel": 84,
+      "sand": 1900,
+      "aggregate": 1450,
+      "bricks": 15,
+      "labor_index": 1.25,
+      "last_updated": "2026-02-15"
+    }
+  },
+  "Telangana": {
+    "Adilabad": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Bhadradri Kothagudem": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Hyderabad": {
+      "cement": 460,
+      "steel": 84,
+      "sand": 1900,
+      "aggregate": 1450,
+      "bricks": 15,
+      "labor_index": 1.25,
+      "last_updated": "2026-02-15"
+    },
+    "Jagtial": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Jangaon": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Jayashankar Bhupalpally": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Jogulamba Gadwal": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Kamareddy": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Karimnagar": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Khammam": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Kumuram Bheem": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Mahabubabad": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Mahabubnagar": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Mancherial": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Medak": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Medchal\u2013Malkajgiri": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Mulugu": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nagarkurnool": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nalgonda": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Narayanpet": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nirmal": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Nizamabad": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Peddapalli": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Rajanna Sircilla": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Rangareddy": {
+      "cement": 460,
+      "steel": 84,
+      "sand": 1900,
+      "aggregate": 1450,
+      "bricks": 15,
+      "labor_index": 1.25,
+      "last_updated": "2026-02-15"
+    },
+    "Sangareddy": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Siddipet": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Suryapet": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Vikarabad": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Wanaparthy": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Warangal": {
+      "cement": 460,
+      "steel": 84,
+      "sand": 1900,
+      "aggregate": 1450,
+      "bricks": 15,
+      "labor_index": 1.25,
+      "last_updated": "2026-02-15"
+    },
+    "Hanamkonda": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    },
+    "Yadadri Bhuvanagiri": {
+      "cement": 420,
+      "steel": 78,
+      "sand": 1600,
+      "aggregate": 1200,
+      "bricks": 12,
+      "labor_index": 1.05,
+      "last_updated": "2026-02-15"
+    }
+  },
+  "National_Default": {
+    "cement": 400,
+    "steel": 75,
+    "sand": 1500,
+    "aggregate": 1200,
+    "bricks": 10,
+    "labor_index": 1.0,
+    "last_updated": "2026-02-15"
+  }
+}

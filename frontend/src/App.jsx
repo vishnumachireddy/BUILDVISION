@@ -1,13 +1,20 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import MapComponent from './components/MapComponent'
+import DraftingEngine from './components/DraftingEngine'
+import Blueprint3DWrapper from './components/Blueprint3DWrapper'
+import AIBlueprint from './components/AIBlueprint'
+import LiveDraftingEngine from './components/LiveDraftingEngine'
+import HolographicViewer from './components/HolographicViewer'
+import BlueprintEngine from './components/BlueprintEngine'
+import ParametricPanel from './components/ParametricPanel'
+import SoilAdvisoryPanel from './components/SoilAdvisoryPanel'
+import IntroOverlay from './components/IntroOverlay'
 import axios from 'axios'
 import {
     Ruler, Calculator, Home, Hammer, Banknote, Layers, Box, FileText,
     Menu, X, ChevronRight, TrendingUp, Package, Shield, Info, Download,
-    User, LogOut, Settings as SettingsIcon, Globe
+    User, LogOut, Settings as SettingsIcon, Globe, Sparkles, Lock, MapPin, Cpu
 } from 'lucide-react'
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Environment, Grid, Html, SoftShadows } from '@react-three/drei'
 
 // --- Restoration: Shared Components ---
 
@@ -46,116 +53,61 @@ const MaterialCard = ({ name, amount, unit, icon, color }) => (
     </div>
 );
 
-// --- 3D Viewer Restoration & Logic ---
+// --- Shared Components ---
 
-const RoomBlock = ({ room, position, scale, floorIndex }) => {
-    const wallHeight = 3.2; // Slightly taller for premium feel
-    const w = scale[0];
-    const d = scale[1];
-    const yOffset = floorIndex * wallHeight;
-
-    return (
-        <group position={[position[0], position[1] + yOffset, position[2]]}>
-            <mesh position={[0, wallHeight / 2, 0]} castShadow receiveShadow>
-                <boxGeometry args={[w, wallHeight, d]} />
-                <meshStandardMaterial color={room.color} transparent opacity={0.65} roughness={0.2} metalness={0.1} />
-            </mesh>
-            <mesh position={[0, wallHeight / 2, 0]}>
-                <boxGeometry args={[w, wallHeight, d]} />
-                <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.1} />
-            </mesh>
-            {/* Slab */}
-            <mesh position={[0, -0.05, 0]} receiveShadow>
-                <boxGeometry args={[w + 0.15, 0.1, d + 0.15]} />
-                <meshStandardMaterial color="#64748b" />
-            </mesh>
-            {floorIndex === 0 && (
-                <Html position={[0, wallHeight + 1, 0]} center distanceFactor={25}>
-                    <div style={{
-                        background: 'rgba(15,23,42,0.85)', color: 'white', padding: '4px 12px',
-                        borderRadius: '20px', fontSize: '11px', fontWeight: 600, backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap'
-                    }}>
-                        {room.name}
-                    </div>
-                </Html>
-            )}
-        </group>
-    );
+const ROOM_COLORS = {
+    living: "#A8D8F0",
+    master: "#BEE5C8",
+    bedroom: "#D6F5E3",
+    kitchen: "#FFE2B8",
+    dining: "#FFF1C1",
+    bath: "#E3D7FF",
+    balcony: "#E6E6E6",
+    other: "#F0F0F0"
 };
 
-const Simple3DViewer = ({ layout, floors = 1 }) => {
-    const floorArray = Array.from({ length: floors }, (_, i) => i);
-
-    const { positions, centerX, centerZ } = useMemo(() => {
-        if (!layout) return { positions: [], centerX: 0, centerZ: 0 };
-        const maxDim = Math.max(...layout.rooms.map(r => Math.max(r.width_ft, r.length_ft)));
-        const scaleFactor = 14 / maxDim;
-        const cols = 2;
-        const pos = [];
-        let curX = 0, curZ = 0, rowMaxZ = 0;
-
-        layout.rooms.forEach((room, idx) => {
-            const w = room.width_ft * scaleFactor;
-            const d = room.length_ft * scaleFactor;
-            const col = idx % cols;
-            if (col === 0 && idx > 0) {
-                curZ += rowMaxZ + 1.2;
-                rowMaxZ = 0;
-                curX = 0;
-            }
-            pos.push({ x: curX + w / 2, z: curZ + d / 2, w, d });
-            curX += w + 1.2;
-            rowMaxZ = Math.max(rowMaxZ, d);
+const ThreeDLegend = ({ rooms }) => {
+    const uniqueRoomTypes = useMemo(() => {
+        const types = new Set();
+        rooms.forEach(r => {
+            const t = r.name.toLowerCase();
+            let key = 'other';
+            if (t.includes('living') || t.includes('hall') || t.includes('grand')) key = 'living';
+            else if (t.includes('master')) key = 'master';
+            else if (t.includes('bedroom') || t.includes('bed')) key = 'bedroom';
+            else if (t.includes('kitchen')) key = 'kitchen';
+            else if (t.includes('dining')) key = 'dining';
+            else if (t.includes('bath') || t.includes('toilet')) key = 'bath';
+            else if (t.includes('balcony') || t.includes('deck')) key = 'balcony';
+            types.add(key);
         });
-
-        const allX = pos.map(p => p.x);
-        const allZ = pos.map(p => p.z);
-        return {
-            positions: pos,
-            centerX: (Math.min(...allX) + Math.max(...allX)) / 2,
-            centerZ: (Math.min(...allZ) + Math.max(...allZ)) / 2
-        };
-    }, [layout]);
-
-    if (!layout) return <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Awaiting layout data...</div>;
+        return Array.from(types);
+    }, [rooms]);
 
     return (
-        <div style={{ height: '100%', width: '100%', borderRadius: '24px', overflow: 'hidden', position: 'relative', background: '#0f172a' }}>
-            <Canvas camera={{ position: [35, 25, 35], fov: 40 }} shadows>
-                <SoftShadows size={20} samples={10} focus={0.5} />
-                <ambientLight intensity={0.4} />
-                <spotLight position={[30, 40, 30]} angle={0.25} penumbra={1} intensity={2} castShadow />
-                <directionalLight position={[-10, 20, -10]} intensity={0.5} />
-                <Environment preset="night" />
-                <Grid args={[100, 100]} position={[0, -0.01, 0]} cellSize={1} sectionSize={5} sectionColor="#1e293b" cellColor="#020617" />
-                <OrbitControls enableDamping autoRotate autoRotateSpeed={0.5} />
-
-                {floorArray.map(floorIdx => (
-                    <group key={floorIdx}>
-                        {layout.rooms.map((room, idx) => (
-                            <RoomBlock
-                                key={`${floorIdx}-${idx}`}
-                                room={room}
-                                floorIndex={floorIdx}
-                                position={[positions[idx].x - centerX, 0, positions[idx].z - centerZ]}
-                                scale={[positions[idx].w, positions[idx].d]}
-                            />
-                        ))}
-                    </group>
+        <div style={{
+            position: 'absolute', top: 24, right: 24, background: 'rgba(15,23,42,0.85)',
+            padding: '24px', borderRadius: '24px', backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)', color: 'white', width: '220px',
+            zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+        }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#00eaff', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '1.5px' }}>Spatial Legend</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {uniqueRoomTypes.map((type, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
+                        <div style={{
+                            width: 14, height: 14, borderRadius: '4px',
+                            background: ROOM_COLORS[type],
+                            border: '1px solid rgba(255,255,255,0.1)'
+                        }}></div>
+                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{type === 'living' ? 'Grand Hall' : type}</span>
+                    </div>
                 ))}
-            </Canvas>
-            <div style={{ position: 'absolute', bottom: 24, left: 24, background: 'rgba(15,23,42,0.8)', padding: '16px', borderRadius: '16px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Blueprint Visualizer</div>
-                <div style={{ fontSize: '16px', fontWeight: 700 }}>{layout.bhk_type} Stacked Model</div>
             </div>
         </div>
     );
 };
 
-// --- Main App Component ---
-
-// --- Restored Component: Loading Overlay ---
 const LoadingOverlay = () => (
     <div style={{
         position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
@@ -170,92 +122,206 @@ const LoadingOverlay = () => (
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
 );
-
-// --- Restored Component: 3D Legend ---
-const ThreeDLegend = ({ rooms }) => (
-    <div style={{
-        position: 'absolute', top: 24, right: 24, background: 'rgba(15,23,42,0.8)',
-        padding: '20px', borderRadius: '20px', backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.1)', color: 'white', width: '200px'
-    }}>
-        <div style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '1px' }}>Legend</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {rooms.map((room, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '4px', background: room.color }}></div>
-                    <span style={{ fontWeight: 500 }}>{room.name}</span>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
 function App() {
     const [polygonCoords, setPolygonCoords] = useState([]);
     const [projectData, setProjectData] = useState(null);
+    const [sketchData, setSketchData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [numFloors, setNumFloors] = useState(1);
     const [user, setUser] = useState(null);
     const [showAuth, setShowAuth] = useState(false);
+    const [projectStage, setProjectStage] = useState(0);
+    const [errorMessage, setErrorMessage] = useState(null);
+    const [layoutMode, setLayoutMode] = useState('AI'); // 'AI' or 'Manual'
+    const [showSplash, setShowSplash] = useState(true);
 
-    const handlePolygonComplete = (coords) => setPolygonCoords(coords);
+    const handleSketchAnalysis = (data) => {
+        const normalizedRooms = data.rooms.map(room => {
+            const w = room.width_ft || 10;
+            const l = room.length_ft || 10;
+            const x = room.position?.x || 0;
+            const y = room.position?.y || 0;
+            return {
+                ...room,
+                x: x + w / 2,
+                y: y + l / 2,
+                vertices: [[x, y], [x + w, y], [x + w, y + l], [x, y + l], [x, y]],
+                area_sqft: w * l,
+                wall_height_ft: 10
+            };
+        });
+        setSketchData({ ...data, rooms: normalizedRooms });
+        setProjectData({
+            layout_plan: {
+                rooms: normalizedRooms,
+                walls: [],
+                bhk_type: data.metrics.detected_rooms > 3 ? "Luxury 4BHK" : "Premium 3BHK",
+                efficiency_ratio: 0.82,
+                floor_count: numFloors
+            },
+            cost_estimate: {
+                total_estimated_cost: data.metrics.total_area_sqft * 2200,
+                material_cost: data.metrics.total_area_sqft * 1400,
+                labor_cost: data.metrics.total_area_sqft * 500,
+                finishing_cost: data.metrics.total_area_sqft * 300,
+                location_detected: "Auto-Detected (Sketch)",
+                quality_mode: "Standard"
+            },
+            material_estimate: {
+                cement_bags: Math.round(data.metrics.total_area_sqft * 0.4),
+                steel_kg: Math.round(data.metrics.total_area_sqft * 4),
+                bricks_count: Math.round(data.metrics.total_area_sqft * 20),
+                sand_tons: Math.round(data.metrics.total_area_sqft * 0.05),
+                aggregate_tons: Math.round(data.metrics.total_area_sqft * 0.03),
+                paint_liters: Math.round(data.metrics.total_area_sqft * 0.15),
+                flooring_sqft: Math.round(data.metrics.total_area_sqft * 0.9)
+            },
+            area_metrics: {
+                buildable_area_sqft: data.metrics.total_area_sqft
+            }
+        });
+        setProjectStage(2);
+        setActiveTab('analysis');
+    };
+
+    const handlePolygonComplete = useCallback((coords) => {
+        if (JSON.stringify(coords) !== JSON.stringify(polygonCoords)) {
+            setPolygonCoords(coords);
+            if (coords.length >= 3 && projectStage < 1) setProjectStage(1);
+        }
+    }, [polygonCoords, projectStage]);
 
     const generatePlan = async () => {
         if (polygonCoords.length < 3) return alert("Select site boundary on the map first.");
         setLoading(true);
+        setErrorMessage(null);
         try {
-            await new Promise(r => setTimeout(r, 1500)); // Aesthetic delay for progress feel
             const response = await axios.post('http://localhost:8000/api/generate-plan', {
                 coordinates: polygonCoords,
                 floors: numFloors
             });
+
+            const layout = response.data.layout_plan;
+            if (!layout) {
+                setErrorMessage("Backend did not return a layout plan.");
+                return;
+            }
             setProjectData(response.data);
+            setProjectStage(2);
             setActiveTab('analysis');
         } catch (error) {
-            alert("Connection error. Is backend server reachable?");
+            const msg = error.response?.data?.detail || error.message || "Unknown Connection Error";
+            setErrorMessage(`Backend Error: ${msg}`);
+            alert(`Connection error: ${msg}`);
         } finally {
             setLoading(false);
         }
     };
 
-    const exportPDF = () => alert("Preparing high-fidelity PDF report...");
+    const handleParametricGenerate = async (inputs) => {
+        setLoading(true);
+        setErrorMessage(null);
+        try {
+            const response = await axios.post('http://localhost:8000/api/generate-parametric-plan', inputs);
+            if (inputs.floors) setNumFloors(inputs.floors);
+            setProjectData(response.data);
+            setProjectStage(2);
+            setActiveTab('analysis');
+        } catch (error) {
+            setErrorMessage(`Parametric Error: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const exportPDF = async () => {
+        if (!projectData) return;
+        setLoading(true);
+        try {
+            const response = await axios.post('http://localhost:8000/api/report', {
+                project_data: projectData,
+                floors: numFloors
+            }, { responseType: 'blob' });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'ConstructIQ_Project_Report.pdf');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error("PDF Export failed:", error);
+            alert("Failed to generate PDF report.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const resetProject = () => {
         setPolygonCoords([]);
         setProjectData(null);
+        setProjectStage(0);
         setActiveTab('dashboard');
         setNumFloors(1);
     };
 
     const navItems = [
-        { id: 'dashboard', label: 'Overview', icon: Home },
-        { id: 'map', label: 'Site Boundary', icon: Globe },
-        { id: 'analysis', label: 'BOQ Analysis', icon: Calculator, disabled: !projectData },
-        { id: '3d', label: '3D Schematic', icon: Box, disabled: !projectData },
-        { id: 'reports', label: 'Exports', icon: FileText, disabled: !projectData },
+        { id: 'dashboard', label: 'Overview', icon: Home, stage: 0 },
+        { id: 'map', label: 'Layout Input', icon: Globe, stage: 0 },
+        { id: 'sketch', label: 'AI Sketch', icon: Sparkles, stage: 0 },
+        { id: 'analysis', label: 'BOQ Analysis', icon: Calculator, stage: 2 },
+        { id: '3d', label: '3D Drafting', icon: Box, stage: 2 },
+        { id: 'hologram', label: '3D Hologram', icon: Sparkles, stage: 2 },
+        { id: '2d_blueprint', label: '2D Drafting', icon: Ruler, stage: 2 },
+        { id: 'blueprint3d', label: 'Blueprint 3D', icon: Layers, stage: 2 },
+        { id: 'reports', label: 'Exports', icon: FileText, stage: 2 },
     ];
 
     const styles = {
         app: { display: 'flex', height: '100vh', width: '100vw', background: '#f8fafc', overflow: 'hidden', fontFamily: "'Outfit', sans-serif" },
-        sidebar: { width: 280, background: '#0f172a', padding: '32px 20px', display: 'flex', flexDirection: 'column', gap: '40px' },
-        main: { flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '32px' },
+        sidebar: { width: 280, background: '#0f172a', padding: '32px 20px', display: 'flex', flexDirection: 'column', gap: '40px', zIndex: 50 },
+        main: { flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' },
         navLink: (active, disabled) => ({
             display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '14px',
             background: active ? '#3b82f6' : 'transparent', color: active ? 'white' : (disabled ? '#334155' : '#94a3b8'),
-            cursor: disabled ? 'not-allowed' : 'pointer', border: 'none', transition: 'all 0.2s', fontWeight: 600, fontSize: '15px'
+            cursor: disabled ? 'not-allowed' : 'pointer', border: 'none', transition: 'all 0.2s', fontWeight: 600, fontSize: '15px',
+            position: 'relative', overflow: 'hidden'
         }),
         header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
         card: { background: 'white', borderRadius: '24px', padding: '32px', boxShadow: '0 4px 24px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' },
         hero: {
             background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
             borderRadius: '24px', padding: '40px', color: 'white', position: 'relative', overflow: 'hidden'
-        }
+        },
+        toggleBtn: (active) => ({
+            padding: '10px 20px', borderRadius: '12px', border: 'none',
+            background: active ? '#3b82f6' : '#f1f5f9',
+            color: active ? 'white' : '#64748b',
+            fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+            display: 'flex', alignItems: 'center', gap: '8px', flex: 1
+        })
     };
+
+    console.log("ConstructIQ App Rendering, activeTab:", activeTab);
 
     return (
         <div style={styles.app}>
-            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+            {showSplash && <IntroOverlay onComplete={() => setShowSplash(false)} />}
+            {/* Phase 1: Hard Debug Overlay */}
+            <div style={{ position: 'fixed', bottom: 20, right: 20, background: 'rgba(0,0,0,0.8)', color: '#00ff00', padding: '15px', borderRadius: '12px', zIndex: 10000, fontSize: '12px', fontFamily: 'monospace', pointerEvents: 'none', border: '1px solid #00ff00' }}>
+                <div>STAGE: {projectStage}</div>
+                <div>MODE: {layoutMode}</div>
+                <div>DATA: {projectData ? "LOADED" : "NULL"}</div>
+                {projectData && (
+                    <>
+                        <div>ROOMS: {projectData.layout_plan?.rooms?.length || 0}</div>
+                        <div>WALLS: {projectData.layout_plan?.walls?.length || 0}</div>
+                    </>
+                )}
+            </div>
+
             {loading && <LoadingOverlay />}
 
             <aside style={styles.sidebar}>
@@ -263,15 +329,31 @@ function App() {
                     <div style={{ background: '#3b82f6', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Hammer size={24} />
                     </div>
-                    <span style={{ fontSize: '22px', fontWeight: 800 }}>ConstructIQ</span>
+                    <div>
+                        <span style={{ fontSize: '20px', fontWeight: 800, display: 'block' }}>ConstructIQ</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 8px', borderRadius: '20px' }}>V3.5</span>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: '20px' }}>PARAMETRIC & BOQ</span>
+                        </div>
+                    </div>
                 </div>
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {navItems.map(item => (
-                        <button key={item.id} disabled={item.disabled} onClick={() => setActiveTab(item.id)} style={styles.navLink(activeTab === item.id, item.disabled)}>
-                            <item.icon size={20} /> {item.label}
-                        </button>
-                    ))}
+                    {navItems.map(item => {
+                        const disabled = projectStage < item.stage;
+                        return (
+                            <button
+                                key={item.id}
+                                disabled={disabled}
+                                onClick={() => setActiveTab(item.id)}
+                                style={styles.navLink(activeTab === item.id, disabled)}
+                            >
+                                <item.icon size={20} />
+                                {item.label}
+                                {disabled && <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+                            </button>
+                        );
+                    })}
                 </nav>
 
                 <div style={{ marginTop: 'auto', padding: '20px', background: '#1e293b', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -287,12 +369,17 @@ function App() {
             <main style={styles.main}>
                 <header style={styles.header}>
                     <div>
-                        <div style={{ color: '#64748b', fontSize: '14px', fontWeight: 500 }}>Welcome back, Jane</div>
+                        <div style={{ color: '#64748b', fontSize: '14px', fontWeight: 500 }}>V3.5 Release Candidate</div>
                         <h1 style={{ margin: '4px 0 0', fontSize: '28px', fontWeight: 800, color: '#0f172a' }}>{navItems.find(n => n.id === activeTab)?.label}</h1>
                     </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                        <button onClick={resetProject} style={{ padding: '12px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 600, cursor: 'pointer' }}>New Project</button>
-                        <button onClick={() => setShowAuth(true)} style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,130,246,0.3)' }}>Login Console</button>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                        {errorMessage && (
+                            <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#b91c1c', padding: '10px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Info size={14} /> {errorMessage}
+                            </div>
+                        )}
+                        <button onClick={resetProject} style={{ padding: '12px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 600, cursor: 'pointer' }}>Reset</button>
+                        <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,130,246,0.3)' }}>Admin Rate Console</button>
                     </div>
                 </header>
 
@@ -300,120 +387,189 @@ function App() {
                     {activeTab === 'dashboard' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                             <div style={styles.hero}>
-                                <div style={{ position: 'relative', zIndex: 1 }}>
-                                    <h2 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 12px' }}>Design the Future of Living</h2>
-                                    <p style={{ opacity: 0.9, maxWidth: '480px', lineHeight: '1.6', marginBottom: '24px' }}>
-                                        Start your next infrastructure project by identifying site boundaries on the map.
-                                        Our AI engine will calculate multi-floor BOQ and materials in real-time.
-                                    </p>
-                                    <button onClick={() => setActiveTab('map')} style={{ padding: '12px 28px', borderRadius: '14px', background: 'white', color: '#3b82f6', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Start Mapping</button>
-                                </div>
-                                <div style={{ position: 'absolute', right: '-40px', bottom: '-40px', opacity: 0.2 }}>
-                                    <div style={{ width: 300, height: 300, background: 'rgba(255,255,255,0.4)', borderRadius: '50%' }}></div>
+                                <h1 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '16px' }}>The Future of Architectural CAD</h1>
+                                <p style={{ maxWidth: '600px', lineHeight: '1.6', opacity: 0.9 }}>
+                                    Switch between AI-driven satellite mapping or precision manual parametric inputs.
+                                    Calculate real-time BOQ based on regional material rates.
+                                </p>
+                                <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+                                    <button onClick={() => { setLayoutMode('AI'); setActiveTab('map'); }} style={{ padding: '14px 28px', borderRadius: '16px', background: 'white', color: '#3b82f6', border: 'none', fontWeight: 800, cursor: 'pointer' }}>AI SMART MODE</button>
+                                    <button onClick={() => { setLayoutMode('Manual'); setActiveTab('map'); }} style={{ padding: '14px 28px', borderRadius: '16px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid white', fontWeight: 800, cursor: 'pointer' }}>MANUAL PARAMETRIC</button>
                                 </div>
                             </div>
-
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
-                                <StatCard title="Active Projects" value="12" icon={Layers} color="#3b82f6" trend="+2.4%" />
-                                <StatCard title="Est. Savings" value="₹2.4M" icon={Banknote} color="#10b981" />
-                                <StatCard title="Avg. Efficiency" value="84.2%" icon={TrendingUp} color="#f59e0b" />
-                                <StatCard title="Safety Index" value="9.8/10" icon={Shield} color="#8b5cf6" />
+                                <StatCard title="Regional DB" value="142 Cities" icon={Globe} color="#3b82f6" />
+                                <StatCard title="Live Rates" value="Updated Today" icon={TrendingUp} color="#10b981" />
+                                <StatCard title="Efficiency" value="88.4%" icon={Cpu} color="#f59e0b" />
+                                <StatCard title="Uptime" value="99.9%" icon={Shield} color="#8b5cf6" />
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'map' && (
-                        <div style={{ height: 'calc(100vh - 250px)', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '32px' }}>
-                            <div style={{ background: '#e2e8f0', borderRadius: '32px', overflow: 'hidden', border: '8px solid white', boxShadow: '0 20px 40px rgba(0,0,0,0.05)', position: 'relative' }}>
-                                <MapComponent onPolygonComplete={handlePolygonComplete} />
-                                {polygonCoords.length > 0 && (
-                                    <div style={{ position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)', background: 'white', padding: '24px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)', display: 'flex', gap: '24px', alignItems: 'center', zIndex: 1000, border: '1px solid #f1f5f9' }}>
-                                        <div>
-                                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '8px' }}>Storey Count</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <button onClick={() => setNumFloors(Math.max(1, numFloors - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer' }}>-</button>
-                                                <span style={{ fontSize: '18px', fontWeight: 800, width: '20px', textAlign: 'center' }}>{numFloors}</span>
-                                                <button onClick={() => setNumFloors(Math.min(10, numFloors + 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer' }}>+</button>
-                                            </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '32px', height: 'calc(100vh - 250px)' }}>
+                            <div style={{ background: '#f1f5f9', borderRadius: '32px', overflow: 'hidden', position: 'relative', border: '8px solid white', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+                                {layoutMode === 'AI' ? (
+                                    <MapComponent onPolygonComplete={handlePolygonComplete} />
+                                ) : (
+                                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: 'rgba(255,255,255,0.2)', flexDirection: 'column', gap: '20px' }}>
+                                        <Layers size={80} />
+                                        <div style={{ fontSize: '20px', fontWeight: 800 }}>PARAMETRIC DRAFTING CANVAS</div>
+                                        <div style={{ fontSize: '14px' }}>Complete dimensions in the side panel to generate geometry.</div>
+                                    </div>
+                                )}
+                                {layoutMode === 'AI' && polygonCoords.length > 0 && (
+                                    <div style={{ position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)', background: 'white', padding: '24px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)', display: 'flex', gap: '24px', alignItems: 'center', zIndex: 1000 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <button onClick={() => setNumFloors(Math.max(1, numFloors - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer' }}>-</button>
+                                            <span style={{ fontSize: '18px', fontWeight: 800 }}>{numFloors}F</span>
+                                            <button onClick={() => setNumFloors(Math.min(10, numFloors + 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: '#f1f5f9', border: 'none', cursor: 'pointer' }}>+</button>
                                         </div>
-                                        <button onClick={generatePlan} style={{ padding: '14px 32px', borderRadius: '16px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            Build {numFloors}F Plan <ChevronRight size={18} />
-                                        </button>
+                                        <button onClick={generatePlan} style={{ padding: '14px 32px', borderRadius: '16px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Generate AI Plan</button>
                                     </div>
                                 )}
                             </div>
-                            <div style={styles.card}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                                    <Info size={20} color="#3b82f6" />
-                                    <h3 style={{ margin: 0 }}>Site Settings</h3>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div style={{ background: 'white', padding: '6px', borderRadius: '16px', border: '1px solid #f1f5f9', display: 'flex', gap: '6px' }}>
+                                    <button onClick={() => setLayoutMode('AI')} style={styles.toggleBtn(layoutMode === 'AI')}><Sparkles size={16} /> AI Smart</button>
+                                    <button onClick={() => setLayoutMode('Manual')} style={styles.toggleBtn(layoutMode === 'Manual')}><Ruler size={16} /> Manual</button>
                                 </div>
-                                <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '14px' }}>Identification of land boundaries is required to calculate the buildable area according to local zoning norms.</p>
-                                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', marginTop: '24px' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Selected Region</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{polygonCoords.length || 0} vertices identified</div>
+
+                                <div style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', paddingBottom: '20px' }}>
+                                    {layoutMode === 'AI' ? (
+                                        <div style={styles.card}>
+                                            <h3 style={{ margin: '0 0 12px' }}>AI Site Boundary</h3>
+                                            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>Use the polygon tool to mark the land area. AI will detect setbacks and optimize internal space.</p>
+                                            <div style={{ marginTop: '24px', padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>VERTICES</div>
+                                                <div style={{ fontSize: '18px', fontWeight: 800 }}>{polygonCoords.length}</div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <ParametricPanel onGenerate={handleParametricGenerate} loading={loading} />
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
+                    {activeTab === 'sketch' && (
+                        <AIBlueprint onAnalysisComplete={handleSketchAnalysis} />
+                    )}
+
+
                     {activeTab === 'analysis' && projectData && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '40px' }}>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>📍 Location Detected</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{projectData.cost_estimate.location_detected}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>📅 Rate Last Updated</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{projectData.cost_estimate.rate_updated}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>🏗️ Quality Tier</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#8b5cf6', background: '#8b5cf615', padding: '2px 12px', borderRadius: '20px' }}>{projectData.cost_estimate.quality_mode}</div>
+                                    </div>
+                                </div>
+                                <button style={{ padding: '10px 20px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Compare Standard Rates</button>
+                            </div>
+
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px' }}>
-                                <StatCard title="Estimated Cost" value={`₹${projectData.cost_estimate.total_estimated_cost.toLocaleString()}`} icon={Banknote} color="#3b82f6" />
-                                <StatCard title="Buildable Area" value={`${(projectData.area_metrics.buildable_area_sqft * numFloors).toLocaleString()} sqft`} icon={Ruler} color="#10b981" />
-                                <StatCard title="BHK Typology" value={projectData.layout_plan.bhk_type} icon={Home} color="#f59e0b" />
+                                <StatCard title="Total Cost" value={`₹${projectData.cost_estimate.total_estimated_cost.toLocaleString()}`} icon={Banknote} color="#3b82f6" />
+                                <StatCard title="Total Area" value={`${(projectData.area_metrics.buildable_area_sqft * numFloors).toLocaleString()} sqft`} icon={Ruler} color="#10b981" />
+                                <StatCard title="BHK Type" value={projectData.layout_plan.bhk_type} icon={Home} color="#f59e0b" />
                                 <StatCard title="Efficiency" value={`${(projectData.layout_plan.efficiency_ratio * 100).toFixed(1)}%`} icon={TrendingUp} color="#8b5cf6" />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
                                 <div style={styles.card}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                        <h3 style={{ margin: 0 }}>Materials Consumption</h3>
-                                        <Package size={20} color="#94a3b8" />
-                                    </div>
+                                    <h3 style={{ margin: '0 0 24px' }}>Regional Material BOQ</h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                        <MaterialCard name="Cement Bags" amount={projectData.material_estimate.cement_bags.toLocaleString()} unit="bags" icon="🏗️" color="#cbd5e1" />
-                                        <MaterialCard name="Reinforcement" amount={projectData.material_estimate.steel_kg.toLocaleString()} unit="kg" icon="⛓️" color="#94a3b8" />
-                                        <MaterialCard name="Bricks / Blocks" amount={projectData.material_estimate.bricks_count.toLocaleString()} unit="qty" icon="🧱" color="#f87171" />
-                                        <MaterialCard name="Coarse Sand" amount={projectData.material_estimate.sand_tons.toLocaleString()} unit="tons" icon="⌛" color="#fbbf24" />
-                                        <MaterialCard name="Aggregates" amount={projectData.material_estimate.aggregate_tons.toLocaleString()} unit="tons" icon="🪨" color="#334155" />
-                                        <MaterialCard name="Interior Paint" amount={projectData.material_estimate.paint_liters.toLocaleString()} unit="liters" icon="🎨" color="#3b82f6" />
+                                        <MaterialCard name="Cement (Grade A)" amount={projectData.material_estimate.cement_bags.toLocaleString()} unit="bags" icon="🏗️" color="#cbd5e1" />
+                                        <MaterialCard name="Steel (TMT)" amount={projectData.material_estimate.steel_kg.toLocaleString()} unit="kg" icon="⛓️" color="#94a3b8" />
+                                        <MaterialCard name="Bricks (Red)" amount={projectData.material_estimate.bricks_count.toLocaleString()} unit="qty" icon="🧱" color="#f87171" />
+                                        <MaterialCard name="River Sand" amount={projectData.material_estimate.sand_tons.toLocaleString()} unit="tons" icon="⌛" color="#fbbf24" />
+                                        <MaterialCard name="Crushed Stones" amount={projectData.material_estimate.aggregate_tons.toLocaleString()} unit="tons" icon="🪨" color="#334155" />
+                                        <MaterialCard name="Premium Paint" amount={projectData.material_estimate.paint_liters.toLocaleString()} unit="liters" icon="🎨" color="#3b82f6" />
                                     </div>
                                 </div>
 
                                 <div style={styles.card}>
-                                    <h3 style={{ margin: '0 0 24px' }}>Cost Breakdown</h3>
+                                    <h3 style={{ margin: '0 0 24px' }}>Regional Cost Analysis</h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[
-                                            { label: 'Fundamental Works', value: projectData.cost_estimate.material_cost, color: '#3b82f6' },
-                                            { label: 'Skilled Labor', value: projectData.cost_estimate.labor_cost, color: '#10b981' },
-                                            { label: 'Finishing Works', value: projectData.cost_estimate.finishing_cost, color: '#f59e0b' }
+                                            { label: 'Regional Material Sourcing', value: projectData.cost_estimate.material_cost, color: '#3b82f6' },
+                                            { label: 'Local Skilled Labor Index', value: projectData.cost_estimate.labor_cost, color: '#10b981' },
+                                            { label: 'Specialized Finishing', value: projectData.cost_estimate.finishing_cost, color: '#f59e0b' }
                                         ].map((item, i) => (
                                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: '#f8fafc', borderRadius: '16px' }}>
-                                                <div style={{ width: 40, height: 40, borderRadius: '10px', background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color }}>
-                                                    <Banknote size={18} />
-                                                </div>
+                                                <div style={{ width: 40, height: 40, borderRadius: '10px', background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color }}><Banknote size={18} /></div>
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontSize: '13px', fontWeight: 700 }}>{item.label}</div>
-                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>Project phase estimate</div>
+                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>Includes regional GST & transit</div>
                                                 </div>
                                                 <div style={{ fontWeight: 800, fontSize: '15px' }}>₹{item.value.toLocaleString()}</div>
                                             </div>
                                         ))}
                                         <div style={{ marginTop: '12px', padding: '20px', background: '#0f172a', borderRadius: '16px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ fontWeight: 700 }}>Total (GST Inc.)</div>
+                                            <div style={{ fontWeight: 700 }}>Grand Total Estimate</div>
                                             <div style={{ fontSize: '20px', fontWeight: 800 }}>₹{projectData.cost_estimate.total_estimated_cost.toLocaleString()}</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <div style={{ maxWidth: '800px' }}>
+                                <SoilAdvisoryPanel
+                                    advisory={projectData.soil_advisory}
+                                    soilType={projectData.cost_estimate.soil_type || "Selected Soil"}
+                                />
+                            </div>
                         </div>
                     )}
 
                     {activeTab === '3d' && projectData && (
+                        <div style={{ height: 'calc(100vh - 200px)', position: 'relative', background: '#0b1221', borderRadius: '24px', overflow: 'hidden' }}>
+                            <DraftingEngine layout={projectData.layout_plan} floors={numFloors} />
+                        </div>
+                    )}
+
+                    {activeTab === 'hologram' && projectData && (
                         <div style={{ height: 'calc(100vh - 200px)', position: 'relative' }}>
-                            <Simple3DViewer layout={projectData.layout_plan} floors={numFloors} />
-                            <ThreeDLegend rooms={projectData.layout_plan.rooms} />
+                            <HolographicViewer layout={projectData.layout_plan} floors={numFloors} />
+                        </div>
+                    )}
+
+                    {activeTab === '2d_blueprint' && projectData && (
+                        <div style={{ height: 'calc(100vh - 200px)', position: 'relative' }}>
+                            <BlueprintEngine layout={projectData.layout_plan} metrics={projectData.area_metrics} />
+                        </div>
+                    )}
+
+
+
+                    {activeTab === 'blueprint3d' && projectData && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div style={{ background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', padding: '24px', borderRadius: '24px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 10px 30px rgba(59,130,246,0.2)' }}>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Advanced Interior Designer</h2>
+                                    <p style={{ margin: '8px 0 0', opacity: 0.9, fontSize: '14px' }}>Modify walls and add assets from the catalog across the blueprint.</p>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255,255,255,0.15)', padding: '12px 24px', borderRadius: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '1px' }}>FLOOR STACK:</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <button onClick={() => setNumFloors(Math.max(1, numFloors - 1))} style={{ width: 32, height: 32, borderRadius: '10px', background: 'white', border: 'none', cursor: 'pointer', color: '#3b82f6', fontWeight: 900, fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                                        <span style={{ fontSize: '20px', fontWeight: 800, minWidth: '30px', textAlign: 'center' }}>{numFloors}</span>
+                                        <button onClick={() => setNumFloors(Math.min(10, numFloors + 1))} style={{ width: 32, height: 32, borderRadius: '10px', background: 'white', border: 'none', cursor: 'pointer', color: '#3b82f6', fontWeight: 900, fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <Blueprint3DWrapper numFloors={numFloors} />
                         </div>
                     )}
 
