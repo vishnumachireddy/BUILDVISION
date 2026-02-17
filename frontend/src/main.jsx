@@ -20,7 +20,7 @@ window.onerror = function (message, source, lineno, colno, error) {
     document.body.appendChild(errorDiv);
 };
 
-console.log("ConstructIQ main.jsx reached - Starting Rendering");
+console.log("BuildVision main.jsx reached - Starting Rendering");
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>

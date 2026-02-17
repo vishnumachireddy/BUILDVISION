@@ -1,77 +1,84 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, Html, PerspectiveCamera, Edges } from '@react-three/drei';
+import { OrbitControls, Grid, Html, Edges } from '@react-three/drei';
 import * as THREE from 'three';
+import { disposeScene, calculateCombinedBoundingBox, normalizeFloorConfig } from '../utils/GeometryUtils';
 
-const HolographicViewer = ({ layout, floors = 1 }) => {
-    const floorCount = (layout && layout.floor_count > 1) ? layout.floor_count : floors;
-    const floorArray = Array.from({ length: floorCount }, (_, i) => i);
-
-    const { rooms, siteBoundary, centerX, centerZ } = useMemo(() => {
-        if (!layout || !layout.rooms || layout.rooms.length === 0)
-            return { rooms: [], siteBoundary: [], centerX: 0, centerZ: 0 };
-
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        let pointsToCenter = layout.site_boundary && layout.site_boundary.length > 0
-            ? layout.site_boundary
-            : layout.rooms.flatMap(r => r.vertices || []);
-
-        if (pointsToCenter.length === 0)
-            return { rooms: layout.rooms, siteBoundary: [], centerX: 0, centerZ: 0 };
-
-        pointsToCenter.forEach(v => {
-            minX = Math.min(minX, v[0]);
-            minY = Math.min(minY, v[1]);
-            maxX = Math.max(maxX, v[0]);
-            maxY = Math.max(maxY, v[1]);
-        });
-
-        return {
-            rooms: layout.rooms,
-            siteBoundary: layout.site_boundary || [],
-            centerX: (minX + maxX) / 2,
-            centerZ: (minY + maxY) / 2
-        };
-    }, [layout]);
-
+const HolographicViewerData = ({ layout, layouts, floors, configMode, roomModes, manualInputs }) => {
     const wallHeight = 10;
-    const hasRooms = layout && layout.rooms && layout.rooms.length > 0;
-    const hasWalls = layout && layout.walls && layout.walls.length > 0;
-    const isEmpty = !hasRooms && !hasWalls;
+
+    // 1. Normalize floor configuration
+    const floorConfig = useMemo(() =>
+        normalizeFloorConfig(layout, layouts, floors, configMode, roomModes, manualInputs),
+        [layout, layouts, floors, configMode, roomModes, manualInputs]
+    );
+
+    // 2. Calculate combined bounding box for centering
+    const { center, size } = useMemo(() =>
+        calculateCombinedBoundingBox(floorConfig.map(f => f.layout), layout, floors, wallHeight),
+        [floorConfig, layout, floors]
+    );
+
+    const masterGroupRef = useRef();
+
+    // 3. Strict disposal on every layout change
+    useEffect(() => {
+        return () => {
+            if (masterGroupRef.current) {
+                disposeScene(masterGroupRef.current);
+            }
+        };
+    }, [floorConfig]);
+
+    const hasGeometry = floorConfig.some(f => f.layout?.rooms?.length > 0);
+
+    if (!hasGeometry) {
+        return (
+            <Html center>
+                <div style={{ color: '#ff4444', fontWeight: 900, textAlign: 'center', background: 'rgba(0,0,0,0.8)', padding: '20px', borderRadius: '12px', border: '1px solid #ff4444' }}>
+                    ⚠️ GEOMETRY ERROR
+                </div>
+            </Html>
+        );
+    }
+
+    return (
+        <>
+            <ambientLight intensity={1.5} />
+            <Grid args={[500, 500]} position={[0, -0.01, 0]} cellSize={10} sectionSize={50} sectionColor="#00eaff" cellColor="#004488" infiniteGrid />
+            <OrbitControls makeDefault target={[0, (floors * wallHeight) / 2, 0]} enablePan={true} enableZoom={true} />
+
+            <group ref={masterGroupRef} position={[-center.x, 0, -center.z]}>
+                {floorConfig.map((floor, floorIdx) => (
+                    <group key={`floor-${floorIdx}-${floor.layoutType}`} position={[0, floorIdx * wallHeight, 0]}>
+                        {floor.layout?.rooms?.map((room, idx) => (
+                            <ExtrudedRoom key={`${floorIdx}-${idx}-${room.name}`} room={room} height={wallHeight} />
+                        ))}
+                    </group>
+                ))}
+                <ScanEffect totalHeight={wallHeight * floors} />
+            </group>
+        </>
+    );
+};
+
+const HolographicViewer = ({ layout, layouts, floors = 1, configMode, roomModes, manualInputs }) => {
 
     return (
         <div style={{ height: '100%', width: '100%', borderRadius: '32px', overflow: 'hidden', position: 'relative', background: '#070d1f' }}>
-            {isEmpty ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4444', fontWeight: 900, textAlign: 'center', padding: '40px' }}>
-                    <div>
-                        <div style={{ fontSize: '32px', marginBottom: '16px' }}>⚠️ GEOMETRY ERROR</div>
-                        <div style={{ fontSize: '14px', opacity: 0.8 }}>The engine could not generate a valid structure for this site boundary.<br />Try drawing a larger or simpler shape.</div>
-                    </div>
-                </div>
-            ) : (
-                <Canvas camera={{ position: [100, 100, 100], fov: 35 }}>
-                    <ambientLight intensity={1.5} />
-                    <Grid args={[500, 500]} position={[0, -0.01, 0]} cellSize={10} sectionSize={50} sectionColor="#00eaff" cellColor="#004488" infiniteGrid />
-                    <OrbitControls makeDefault target={[0, (floorCount * wallHeight) / 2, 0]} />
-
-                    <group position={[-centerX, 0, centerZ]}>
-                        {siteBoundary && siteBoundary.length > 0 && (
-                            <SiteBoundaryLine vertices={siteBoundary} />
-                        )}
-                        {floorArray.map(floorIdx => (
-                            <group key={floorIdx} position={[0, floorIdx * wallHeight, 0]}>
-                                {rooms.map((room, idx) => (
-                                    <ExtrudedRoom key={`${floorIdx}-${idx}`} room={room} height={wallHeight} />
-                                ))}
-                            </group>
-                        ))}
-                        <ScanEffect totalHeight={wallHeight * floorCount} />
-                    </group>
-                </Canvas>
-            )}
+            <Canvas camera={{ position: [1.5 * floors * 10, floors * 10 + 50, 1.5 * floors * 10], fov: 35 }}>
+                <HolographicViewerData
+                    layout={layout}
+                    layouts={layouts}
+                    floors={floors}
+                    configMode={configMode}
+                    roomModes={roomModes}
+                    manualInputs={manualInputs}
+                />
+            </Canvas>
 
             <div style={{ position: 'absolute', top: 32, left: 32, display: 'flex', gap: '12px' }}>
-                <div style={{ background: '#00eaff', color: '#000', padding: '6px 14px', borderRadius: '12px', fontSize: '11px', fontWeight: 900 }}>HOLOGRAPHIC GEOMETRY STREAM V2.1.3</div>
+                <div style={{ background: '#00eaff', color: '#000', padding: '6px 14px', borderRadius: '12px', fontSize: '11px', fontWeight: 900 }}>HOLOGRAPHIC GEOMETRY STREAM V2.2.0</div>
             </div>
         </div>
     );

@@ -1,210 +1,226 @@
 import React, { useEffect, useState } from 'react';
+import { Sparkles, ArrowRight, Box, Cpu, Globe, Rocket } from 'lucide-react';
 
 const IntroOverlay = ({ onComplete }) => {
-    const [stage, setStage] = useState(0); // 1, 2, 3, 4
+    const [mounted, setMounted] = useState(false);
     const [closing, setClosing] = useState(false);
 
     useEffect(() => {
-        // Stage 1: Dark Cinematic Intro (0-1.5s)
-        const s1 = setTimeout(() => setStage(1), 100);
+        setMounted(true);
+    }, []);
 
-        // Stage 2: Intelligence Activation (1.5-3s)
-        const s2 = setTimeout(() => setStage(2), 1500);
-
-        // Stage 3: Data Flow Effect (3-4s)
-        const s3 = setTimeout(() => setStage(3), 3000);
-
-        // Stage 4: Transition to Dashboard (4-6s)
-        const s4 = setTimeout(() => {
-            setClosing(true);
-            setTimeout(onComplete, 1000);
-        }, 5000);
-
-        return () => {
-            [s1, s2, s3, s4].forEach(clearTimeout);
-        };
-    }, [onComplete]);
+    const handleStart = () => {
+        setClosing(true);
+        setTimeout(onComplete, 1200);
+    };
 
     return (
         <div style={{
             position: 'fixed',
             inset: 0,
-            background: '#0a0f1d',
+            background: '#040712',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexDirection: 'column',
             overflow: 'hidden',
             opacity: closing ? 0 : 1,
-            transform: closing ? 'scale(1.1)' : 'scale(1)',
-            transition: 'opacity 1s cubic-bezier(0.4, 0, 0.2, 1), transform 1s cubic-bezier(0.4, 0, 0.2, 1)',
-            fontFamily: "'Outfit', sans-serif"
+            transform: closing ? 'scale(1.05)' : 'scale(1)',
+            transition: 'opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            fontFamily: "'Outfit', sans-serif",
+            color: 'white'
         }}>
-            {/* Background Grid - Animated subtly */}
+            {/* Background Aesthetic Elements */}
+            <div style={{
+                position: 'absolute',
+                top: '-10%',
+                left: '-10%',
+                width: '120%',
+                height: '120%',
+                background: 'radial-gradient(circle at center, rgba(0, 234, 255, 0.1) 0%, transparent 70%)',
+                opacity: mounted ? 0.6 : 0,
+                transition: 'opacity 3s ease'
+            }} />
+
             <div style={{
                 position: 'absolute',
                 inset: 0,
-                backgroundImage: 'linear-gradient(rgba(0, 234, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 234, 255, 0.05) 1px, transparent 1px)',
-                backgroundSize: '60px 60px',
-                opacity: stage >= 2 ? 0.4 : 0,
+                backgroundImage: 'linear-gradient(rgba(0, 234, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 234, 255, 0.03) 1px, transparent 1px)',
+                backgroundSize: '100px 100px',
+                opacity: mounted ? 0.5 : 0,
                 transition: 'opacity 2s ease-in-out',
-                transform: 'perspective(1000px) rotateX(60deg) translateY(-100px) translateZ(0)',
+                transform: 'perspective(1500px) rotateX(70deg) translateY(-200px)',
                 transformOrigin: 'top center'
-            }}></div>
+            }} />
 
-            {/* Central Stage */}
+            {/* Content Container */}
             <div style={{
                 position: 'relative',
-                width: '400px',
-                height: '400px',
+                maxWidth: '1200px',
+                width: '100%',
+                padding: '0 40px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                perspective: '1200px'
+                justifyContent: 'space-between',
+                zIndex: 10
             }}>
-                {/* Stage 1-2: Wireframe Building */}
+                {/* Left Side: Text Content */}
                 <div style={{
-                    width: '180px',
-                    height: '180px',
-                    position: 'relative',
-                    transformStyle: 'preserve-3d',
-                    transform: stage >= 2 ? 'rotateY(45deg) rotateX(-15deg)' : 'rotateY(0) rotateX(0)',
-                    transition: 'transform 2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    opacity: stage >= 1 ? 1 : 0
+                    width: '50%',
+                    opacity: mounted ? 1 : 0,
+                    transform: mounted ? 'translateX(0)' : 'translateX(-40px)',
+                    transition: 'all 1.2s cubic-bezier(0.22, 1, 0.36, 1)'
                 }}>
-                    {/* Building Outline SVG */}
-                    <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
-                        <path
-                            d="M 20,80 L 20,40 L 50,20 L 80,40 L 80,80 L 20,80 M 20,40 L 80,40 M 50,20 L 50,80"
-                            fill="none"
-                            stroke="#00eaff"
-                            strokeWidth="0.5"
-                            className="building-path"
-                            style={{
-                                strokeDasharray: 1000,
-                                strokeDashoffset: stage >= 1 ? 0 : 1000,
-                                transition: 'stroke-dashoffset 1.5s ease-out',
-                                filter: 'drop-shadow(0 0 5px rgba(0, 234, 255, 0.5))'
-                            }}
-                        />
-                        {/* Floor Segments Reveal */}
-                        {stage >= 2 && (
-                            <g opacity="0.4">
-                                <line x1="20" y1="60" x2="80" y2="60" stroke="#00eaff" strokeWidth="0.2" />
-                                <line x1="20" y1="50" x2="80" y2="50" stroke="#00eaff" strokeWidth="0.2" />
-                            </g>
-                        )}
-                    </svg>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                        <div style={{ width: 40, height: 2, background: '#00eaff' }}></div>
+                        <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '4px', color: '#00eaff', textTransform: 'uppercase' }}>
+                            Next-Gen Architectural Intelligence
+                        </span>
+                    </div>
 
-                    {/* Stage 3: Light Particles (Data Flow) */}
-                    {stage >= 3 && (
-                        <div className="data-flow-container" style={{ position: 'absolute', inset: 0 }}>
-                            <div className="particle" style={{ left: '20%', top: '80%', animationDelay: '0s' }}></div>
-                            <div className="particle" style={{ left: '50%', top: '20%', animationDelay: '0.4s' }}></div>
-                            <div className="particle" style={{ left: '80%', top: '80%', animationDelay: '0.8s' }}></div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Brand Text */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '-60px',
-                    width: '100%',
-                    textAlign: 'center',
-                    opacity: stage >= 2 ? 1 : 0,
-                    transform: `translateY(${stage >= 2 ? '0' : '20px'})`,
-                    transition: 'all 1s cubic-bezier(0.22, 1, 0.36, 1)'
-                }}>
                     <h1 style={{
-                        color: 'white',
-                        fontSize: '36px',
+                        fontSize: '84px',
                         fontWeight: 900,
-                        margin: 0,
-                        letterSpacing: '8px',
-                        textTransform: 'uppercase',
-                        background: 'linear-gradient(to bottom, #fff, #94a3b8)',
+                        margin: '0 0 24px',
+                        lineHeight: '0.9',
+                        letterSpacing: '-2px',
+                        background: 'linear-gradient(to bottom right, #fff 40%, #94a3b8 100%)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent'
-                    }}>CONSTRUCTIQ</h1>
-
-                    <div style={{
-                        color: '#00eaff',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        letterSpacing: '3px',
-                        marginTop: '8px',
-                        opacity: 0.8,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px'
                     }}>
-                        <div style={{ width: '20px', height: '1px', background: 'rgba(0, 234, 255, 0.3)' }}></div>
-                        AI-POWERED CONSTRUCTION INTELLIGENCE
-                        <div style={{ width: '20px', height: '1px', background: 'rgba(0, 234, 255, 0.3)' }}></div>
+                        Construct<span style={{ color: '#00eaff', WebkitTextFillColor: '#00eaff' }}>IQ</span><br />
+                        Engineering.
+                    </h1>
+
+                    <p style={{
+                        fontSize: '20px',
+                        color: '#94a3b8',
+                        maxWidth: '500px',
+                        lineHeight: '1.6',
+                        marginBottom: '48px',
+                        fontWeight: 500
+                    }}>
+                        Synthesizing satellite precision, regional soil intelligence, and AI-driven spatial planning into a unified 3D ecosystem.
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <button
+                            onClick={handleStart}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 234, 255, 0.3)';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 10px 30px rgba(0, 234, 255, 0.2)';
+                            }}
+                            style={{
+                                padding: '20px 48px',
+                                borderRadius: '20px',
+                                background: '#00eaff',
+                                color: '#040712',
+                                border: 'none',
+                                fontSize: '18px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                boxShadow: '0 10px 30px rgba(0, 234, 255, 0.2)'
+                            }}
+                        >
+                            <Rocket size={20} /> LAUNCH WORKSPACE <ArrowRight size={20} />
+                        </button>
+                    </div>
+
+                    {/* Features Row */}
+                    <div style={{
+                        marginTop: '80px',
+                        display: 'flex',
+                        gap: '60px',
+                        opacity: mounted ? 0.6 : 0,
+                        transition: 'opacity 2s ease 0.5s'
+                    }}>
+                        {[
+                            { icon: Globe, label: 'Global Terrain' },
+                            { icon: Cpu, label: 'AI Synthesis' },
+                            { icon: Box, label: 'Real-time 3D' }
+                        ].map((f, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <f.icon size={18} color="#00eaff" />
+                                <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>{f.label}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Tagline Reveal */}
-            <div style={{
-                position: 'absolute',
-                bottom: '100px',
-                display: 'flex',
-                gap: '40px',
-                opacity: stage >= 3 ? 1 : 0,
-                transform: `translateY(${stage >= 3 ? '0' : '10px'})`,
-                transition: 'all 0.8s ease-out'
-            }}>
-                {['Planning', 'Estimation', 'Intelligence'].map((text, i) => (
-                    <div key={i} style={{
-                        color: 'white',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        letterSpacing: '2px',
-                        opacity: 0.6,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
+                {/* Right Side: Animated 3D Wireframe Placeholder */}
+                <div style={{
+                    width: '40%',
+                    height: '600px',
+                    position: 'relative',
+                    opacity: mounted ? 1 : 0,
+                    transform: mounted ? 'scale(1) rotateY(-10deg)' : 'scale(0.9) rotateY(0)',
+                    transition: 'all 1.5s cubic-bezier(0.22, 1, 0.36, 1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <div className="hero-building-visual" style={{
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative',
+                        transformStyle: 'preserve-3d'
                     }}>
-                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#3b82f6' }}></div>
-                        {text}
+                        {/* Central Glowing Core */}
+                        <div style={{
+                            position: 'absolute',
+                            width: '200px',
+                            height: '200px',
+                            background: 'radial-gradient(circle, #00eaff 0%, transparent 70%)',
+                            filter: 'blur(30px)',
+                            opacity: 0.3,
+                            animation: 'pulse 4s ease-in-out infinite'
+                        }} />
+
+                        {/* Animated Wireframe Elements */}
+                        <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 0 15px rgba(0, 234, 255, 0.4))' }}>
+                            <rect x="25" y="40" width="50" height="40" fill="none" stroke="#00eaff" strokeWidth="0.5" strokeDasharray="200" style={{ animation: 'draw 4s ease-out infinite' }} />
+                            <path d="M 25,40 L 50,20 L 75,40" fill="none" stroke="#00eaff" strokeWidth="0.5" strokeDasharray="100" style={{ animation: 'draw 4s ease-out infinite 0.5s' }} />
+                            <line x1="25" y1="55" x2="75" y2="55" stroke="rgba(0, 234, 255, 0.2)" strokeWidth="0.1" />
+                            <line x1="25" y1="70" x2="75" y2="70" stroke="rgba(0, 234, 255, 0.2)" strokeWidth="0.1" />
+                        </svg>
                     </div>
-                ))}
+                </div>
             </div>
 
             {/* Version Display */}
             <div style={{
                 position: 'absolute',
-                top: '40px',
+                bottom: '40px',
                 right: '40px',
                 color: 'rgba(255,255,255,0.2)',
-                fontSize: '10px',
-                fontWeight: 800,
-                letterSpacing: '1px'
+                fontSize: '11px',
+                fontWeight: 900,
+                letterSpacing: '2px'
             }}>
-                V4.0 PREMIUM BUILD
+                CONSTRUCTIQ V4.2.0 CORE // PREMIUM_RELEASE
             </div>
 
             <style>{`
-                .particle {
-                    position: absolute;
-                    width: 4px;
-                    height: 4px;
-                    background: #00eaff;
-                    border-radius: 50%;
-                    box-shadow: 0 0 10px #00eaff;
-                    animation: dataFlow 2s linear infinite;
+                @keyframes pulse {
+                    0%, 100% { transform: scale(1); opacity: 0.3; }
+                    50% { transform: scale(1.2); opacity: 0.5; }
                 }
-                @keyframes dataFlow {
-                    0% { transform: scale(0) translateZ(0); opacity: 0; }
-                    50% { transform: scale(1.5) translateZ(50px); opacity: 1; }
-                    100% { transform: scale(0) translateZ(100px); opacity: 0; }
+                @keyframes draw {
+                    0% { stroke-dashoffset: 200; opacity: 0; }
+                    30% { opacity: 1; }
+                    70% { stroke-dashoffset: 0; opacity: 1; }
+                    100% { stroke-dashoffset: 0; opacity: 0; }
                 }
-                .building-path {
-                    filter: drop-shadow(0 0 8px rgba(0, 234, 255, 0.4));
+                button:active {
+                    transform: scale(0.95) !important;
                 }
             `}</style>
         </div>

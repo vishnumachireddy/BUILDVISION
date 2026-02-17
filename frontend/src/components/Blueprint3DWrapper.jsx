@@ -1,8 +1,30 @@
 import React from 'react';
 
-const Blueprint3DWrapper = ({ numFloors = 1 }) => {
-    console.log("Blueprint3DWrapper Rendering - numFloors:", numFloors);
-    const cacheBuster = React.useMemo(() => Date.now(), [numFloors]);
+const Blueprint3DWrapper = ({ numFloors = 1, activeFloorIndex = 0 }) => {
+    console.log("Blueprint3DWrapper Rendering - numFloors:", numFloors, "activeFloorIndex:", activeFloorIndex);
+    const cacheBuster = React.useMemo(() => Date.now(), []); // Only on mount
+    const iframeRef = React.useRef(null);
+
+    const initialFloors = React.useMemo(() => numFloors, []);
+    const initialActiveFloor = React.useMemo(() => activeFloorIndex, []);
+
+    React.useEffect(() => {
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'UPDATE_ACTIVE_FLOOR',
+                activeFloorIndex: activeFloorIndex
+            }, '*');
+        }
+    }, [activeFloorIndex]);
+
+    React.useEffect(() => {
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'UPDATE_NUM_FLOORS',
+                numFloors: numFloors
+            }, '*');
+        }
+    }, [numFloors]);
 
     return (
         <div style={{
@@ -15,7 +37,8 @@ const Blueprint3DWrapper = ({ numFloors = 1 }) => {
             background: '#fff'
         }}>
             <iframe
-                src={`/blueprint3d/example/index.html?floors=${numFloors}&v=${cacheBuster}`}
+                ref={iframeRef}
+                src={`/blueprint3d/example/index.html?floors=${initialFloors}&activeFloor=${initialActiveFloor}&v=${cacheBuster}`}
                 title="Blueprint 3D Editor"
                 style={{
                     width: '100%',

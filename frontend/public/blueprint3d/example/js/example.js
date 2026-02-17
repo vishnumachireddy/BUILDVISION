@@ -1,5 +1,31 @@
 
 /*
+ * ConstructIQ Project State
+ */
+window.project = {
+    activeFloorIndex: 0,
+    itemsByFloor: {},
+    floors: [], // Per-floor groups and data
+    floorHeight: 304.8, // 10 feet
+    floorThickness: 15.24 // 0.5 feet
+};
+
+// Listen for messages from the parent App
+window.addEventListener('message', function (event) {
+    if (event.data.type === 'UPDATE_ACTIVE_FLOOR') {
+        window.project.activeFloorIndex = event.data.activeFloorIndex;
+        console.log("Active Floor Updated to:", window.project.activeFloorIndex);
+        if (window.multiFloorController) {
+            window.multiFloorController.update();
+        }
+    } else if (event.data.type === 'UPDATE_NUM_FLOORS') {
+        if (window.multiFloorController) {
+            window.multiFloorController.setNumFloors(event.data.numFloors);
+        }
+    }
+});
+
+/*
  * Camera Buttons
  */
 
@@ -23,7 +49,13 @@ var CameraButtons = function (blueprint3d) {
         $("#zoom-in").dblclick(preventDefault);
         $("#zoom-out").dblclick(preventDefault);
 
-        $("#reset-view").click(three.centerCamera)
+        $("#reset-view").click(function () {
+            if (window.multiFloorController) {
+                window.multiFloorController.centerOnActiveFloor();
+            } else {
+                three.centerCamera();
+            }
+        });
 
         $("#move-left").click(function () {
             pan(directions.LEFT)
@@ -86,14 +118,21 @@ var CameraButtons = function (blueprint3d) {
  */
 
 var ContextMenu = function (blueprint3d) {
-
     var scope = this;
     var selectedItem;
     var three = blueprint3d.three;
 
     function init() {
         $("#context-menu-delete").click(function (event) {
+            var floorIndex = window.project.activeFloorIndex;
+            var floorData = window.project.floors[floorIndex];
+            if (floorData) {
+                floorData.items = floorData.items.filter(function (item) {
+                    return item !== selectedItem;
+                });
+            }
             selectedItem.remove();
+            saveToLocalStorage(); // Ensure deletion is persisted
         });
 
         three.itemSelectedCallbacks.add(itemSelected);
@@ -322,7 +361,6 @@ var SideMenu = function (blueprint3d, floorplanControls, modalEffects) {
 
     };
 
-    // TODO: this doesn't really belong here
     function initItems() {
         $("#add-items").find(".add-item").mousedown(function (e) {
             var modelUrl = $(this).attr("model-url");
@@ -331,9 +369,11 @@ var SideMenu = function (blueprint3d, floorplanControls, modalEffects) {
                 itemName: $(this).attr("model-name"),
                 resizable: true,
                 modelUrl: modelUrl,
-                itemType: itemType
+                itemType: itemType,
+                floorIndex: window.project.activeFloorIndex // Tag with active floor
             }
 
+            // addItem will trigger itemLoadedCallback which handles parenting
             blueprint3d.model.scene.addItem(itemType, modelUrl, metadata);
             setCurrentState(scope.states.DEFAULT);
         });
@@ -472,14 +512,30 @@ var mainControls = function (blueprint3d) {
         blueprint3d.model.loadSerialized('{"floorplan":{"corners":{"f90da5e3-9e0e-eba7-173d-eb0b071e838e":{"x":204.85099999999989,"y":289.052},"da026c08-d76a-a944-8e7b-096b752da9ed":{"x":672.2109999999999,"y":289.052},"4e3d65cb-54c0-0681-28bf-bddcc7bdb571":{"x":672.2109999999999,"y":-178.308},"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2":{"x":204.85099999999989,"y":-178.308}},"walls":[{"corner1":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","corner2":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","corner2":"da026c08-d76a-a944-8e7b-096b752da9ed","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"da026c08-d76a-a944-8e7b-096b752da9ed","corner2":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","corner2":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}}],"wallTextures":[],"floorTextures":{},"newFloorTextures":{}},"items":[]}');
     }
 
-
-
     function saveDesign() {
+        // Collect everything for the new plan structure
+        var planData = {
+            version: "4.0",
+            totalFloors: parseInt(new URLSearchParams(window.location.search).get('floors')) || 1,
+            activeFloor: window.project.activeFloorIndex,
+            // exportSerialized includes all items with their floorIndex metadata
+            fullDesign: blueprint3d.model.exportSerialized()
+        };
+
+        console.log("Saving Professional Plan V4.0:", planData);
+
+        // Save to LocalStorage for persistence
+        saveToLocalStorage();
+
         var canvas = document.querySelector('#viewer canvas') || document.getElementById('three-canvas');
         if (!canvas) {
             alert("3D view not ready yet.");
             return;
         }
+
+        // Final save before export
+        saveToLocalStorage();
+
         var imgData = canvas.toDataURL("image/png");
         var a = window.document.createElement('a');
         a.href = imgData;
@@ -496,7 +552,6 @@ var mainControls = function (blueprint3d) {
 
     init();
 }
-
 /*
  * Multi-Floor Rendering Controller
  */
@@ -504,122 +559,321 @@ var mainControls = function (blueprint3d) {
 var MultiFloorController = function (blueprint3d) {
     var scope = this;
     var numFloors = 1;
-    var floorHeight = 250; // cm
-    var clones = [];
+    var floorHeight = window.project.floorHeight;
+    var floorGroups = []; // Persistent groups for each floor
 
     function init() {
-        console.log("████████ CONSTRUCTIQ MULTI-FLOOR v2.1 ACTIVE ████████");
+        console.log("████████ CONSTRUCTIQ MULTI-FLOOR v3.0 ACTIVE ████████");
         var params = new URLSearchParams(window.location.search);
         numFloors = parseInt(params.get('floors')) || 1;
-        console.log("MultiFloorController Init - Floors:", numFloors);
+        window.project.activeFloorIndex = parseInt(params.get('activeFloor')) || 0;
+
+        var threeScene = blueprint3d.three.getScene().getScene();
+
+        // Create persistent floor groups ONLY ONCE
+        for (var f = 0; f < numFloors; f++) {
+            var group = new THREE.Group();
+            var elevation = f * floorHeight;
+            group.position.y = elevation;
+            group.name = "FloorGroup_" + f;
+            group.userData.isFloorGroup = true;
+            group.userData.floorIndex = f;
+            threeScene.add(group);
+
+            floorGroups.push(group);
+            window.project.floors.push({
+                index: f,
+                group: group,
+                items: [],
+                elevation: elevation
+            });
+        }
+
+        console.log("MultiFloorController Init - Floors:", numFloors, "Groups Created:", floorGroups.length);
+
+        // Listen for item additions to set height and parent correctly
+        blueprint3d.model.scene.itemLoadedCallbacks.add(function (item) {
+            var floorIndex = (item.metadata && item.metadata.floorIndex !== undefined)
+                ? item.metadata.floorIndex
+                : window.project.activeFloorIndex;
+
+            var floorData = window.project.floors[floorIndex];
+            if (!floorData) return;
+
+            var group = floorData.group;
+
+            if (group && !item.userData.heightProcessed) {
+                // Correct Y-position per user requirement: floorElevation + itemHeight/2
+                // But since they are children of the group, local Y is just itemHeight/2
+                var itemHeight = item.getHeight();
+                item.position.y = itemHeight / 2;
+
+                // Assign to floor-specific group
+                group.add(item);
+                floorData.items.push(item);
+
+                item.userData.heightProcessed = true;
+                item.userData.floorIndex = floorIndex;
+                item.metadata.floorIndex = floorIndex;
+
+                saveToLocalStorage();
+                updateVisibility();
+            }
+        });
 
         if (numFloors > 1) {
-            // Use public API methods for callbacks
             blueprint3d.model.floorplan.fireOnUpdatedRooms(function () {
-                console.log("Room updated callback through fireOnUpdatedRooms");
                 setTimeout(update, 200);
             });
-
             blueprint3d.model.floorplan.roomLoadedCallbacks.add(function () {
-                console.log("Room loaded callback");
                 setTimeout(update, 200);
             });
-
             blueprint3d.model.floorplan.fireOnRedraw(function () {
-                console.log("Floorplan redraw callback");
                 setTimeout(update, 200);
             });
-
-            // Initial trigger
             setTimeout(update, 1000);
         }
     }
 
-    function update() {
-        console.log("MultiFloorController Update - Stacking", numFloors, "floors");
-        try {
-            if (typeof THREE === 'undefined') {
-                console.error("THREE is not defined! Stacking failed.");
-                return;
+    this.setNumFloors = function (newCount) {
+        console.log("MultiFloorController: Updating numFloors to:", newCount);
+        var threeScene = blueprint3d.three.getScene().getScene();
+
+        if (newCount > numFloors) {
+            // Add floors
+            for (var f = numFloors; f < newCount; f++) {
+                var group = new THREE.Group();
+                var elevation = f * floorHeight;
+                group.position.y = elevation;
+                group.name = "FloorGroup_" + f;
+                group.userData.isFloorGroup = true;
+                group.userData.floorIndex = f;
+                threeScene.add(group);
+
+                floorGroups.push(group);
+                window.project.floors.push({
+                    index: f,
+                    group: group,
+                    items: [],
+                    elevation: elevation
+                });
             }
+        } else if (newCount < numFloors) {
+            // Remove floors (careful not to delete items if we want to support undo/redo, 
+            // but for simplicity we remove the groups from scene)
+            for (var f = numFloors - 1; f >= newCount; f--) {
+                var group = floorGroups[f];
+                if (group) {
+                    threeScene.remove(group);
+                }
+                floorGroups.pop();
+                window.project.floors.pop();
+            }
+        }
+
+        numFloors = newCount;
+        update();
+    }
+
+    this.update = function () {
+        update();
+    }
+
+    function updateVisibility() {
+        var activeIndex = window.project.activeFloorIndex;
+        window.project.floors.forEach(function (floor) {
+            var group = floor.group;
+            if (group) {
+                var isActive = (floor.index === activeIndex);
+
+                // USER REQUIREMENT: Default hide non-active floors
+                // For professional view 0.15 opacity can be used
+                group.visible = true; // Stay in stack
+
+                group.traverse(function (node) {
+                    if (node.material) {
+                        if (!node.userData.originalMaterial) {
+                            node.userData.originalMaterial = node.material.clone();
+                        }
+
+                        if (isActive) {
+                            node.material = node.userData.originalMaterial;
+                        } else {
+                            node.material = node.userData.originalMaterial.clone();
+                            node.material.transparent = true;
+                            node.material.opacity = 0.15; // Set to 0 to hide completely if preferred
+                        }
+                    }
+                });
+            }
+        });
+
+        // Final camera update
+        if (window.multiFloorController) {
+            window.multiFloorController.centerOnActiveFloor();
+        }
+    }
+
+    function saveToLocalStorage() {
+        try {
+            // exportSerialized already includes items and their metadata (including floorIndex)
+            var serialized = blueprint3d.model.exportSerialized();
+            localStorage.setItem('constructiq_autosave', serialized);
+            console.log("ConstructIQ: Project Autosaved to LocalStorage");
+        } catch (e) {
+            console.warn("Autosave failed:", e);
+        }
+    }
+
+    // Make it accessible for other controllers
+    window.saveToLocalStorage = saveToLocalStorage;
+
+    function update() {
+        console.log("MultiFloorController Update - Re-Grouping Scene Graph");
+        try {
+            if (typeof THREE === 'undefined') return;
 
             var threeScene = blueprint3d.three.getScene().getScene();
+            var rooms = blueprint3d.model.floorplan.getRooms();
+            var children = threeScene.children.slice();
 
-            // Remove old clones
-            clones.forEach(function (c) {
-                threeScene.remove(c);
+            // 1. RESTORE Live structural elements to root scene before anything else
+            // This ensures they are captured in the 'children' slice for the next organization cycle
+            floorGroups.forEach(function (group) {
+                var toRestore = [];
+                group.children.forEach(function (child) {
+                    if (child.userData.isLiveStructural) toRestore.push(child);
+                });
+                toRestore.forEach(function (child) {
+                    threeScene.add(child);
+                });
             });
-            clones = [];
+
+            // Re-capture children after restoration
+            children = threeScene.children.slice();
+
+            // Handle visibility of floor groups
+            updateVisibility();
+
+            // 2. Clear structural clones and tags
+            floorGroups.forEach(function (group) {
+                var toRemove = [];
+                group.children.forEach(function (child) {
+                    if (child.userData.isStructural || child.userData.isLiveStructural) {
+                        toRemove.push(child);
+                    }
+                });
+                toRemove.forEach(function (child) {
+                    group.remove(child);
+                });
+            });
 
             if (numFloors <= 1) return;
 
-            var children = threeScene.children.slice();
-            var rooms = blueprint3d.model.floorplan.getRooms();
-            console.log("Current rooms count:", rooms.length);
+            for (var f = 0; f < numFloors; f++) {
+                var isActiveFloor = (f === window.project.activeFloorIndex);
+                var group = floorGroups[f];
+                if (!group) continue;
 
-            for (var f = 1; f < numFloors; f++) {
-                var yOffset = f * floorHeight;
-                var floorGroup = new THREE.Group();
-                floorGroup.position.y = yOffset;
-                floorGroup.userData.isFloorClone = true;
+                // 1. Move/Clone Structural Elements (Walls, Floors)
+                if (isActiveFloor) {
+                    // Move live children into the active group to get the yOffset automatically
+                    children.forEach(function (child) {
+                        if (child instanceof THREE.Light ||
+                            child instanceof THREE.Camera ||
+                            child.name === "skybox" ||
+                            child.userData.isFloorClone ||
+                            child.userData.isFloorGroup || // Only skip REAL floor groups
+                            child instanceof BP3D.Items.Item) {
+                            return;
+                        }
+                        child.userData.isLiveStructural = true;
+                        group.add(child);
+                    });
+                } else {
+                    // Clone structural elements for inactive floors
+                    children.forEach(function (child) {
+                        if (child instanceof THREE.Light ||
+                            child instanceof THREE.Camera ||
+                            child.name === "skybox" ||
+                            child.userData.isFloorClone ||
+                            child.userData.isFloorGroup || // Only skip REAL floor groups
+                            child instanceof BP3D.Items.Item) {
+                            return;
+                        }
+                        try {
+                            var clone = child.clone();
+                            clone.userData.isFloorClone = true;
+                            clone.userData.isStructural = true;
 
-                // 1. Clone Existing Geometry
-                children.forEach(function (child) {
-                    if (child instanceof THREE.Light ||
-                        child instanceof THREE.Camera ||
-                        child.name === "skybox" ||
-                        child.userData.isFloorClone) {
-                        return;
-                    }
-                    try {
-                        var clone = child.clone();
-                        clone.userData.isFloorClone = true;
-                        floorGroup.add(clone);
-                    } catch (e) {
-                        console.warn("Could not clone child:", child, e);
-                    }
-                });
+                            // Ghosting handled in updateVisibility() via traverse
+                            group.add(clone);
+                        } catch (e) { }
+                    });
+                }
 
-                // 2. Add Structural Slab (Separation Layer)
-                var slabMaterial = new THREE.MeshPhongMaterial({ color: 0x888888, side: THREE.DoubleSide });
+                // 2. Render Structural slabs and columns for ALL floors
+                var slabMaterial = new THREE.MeshPhongMaterial({ color: 0x888888, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
                 rooms.forEach(function (room) {
                     var corners = room.interiorCorners;
                     if (corners && corners.length > 0) {
                         var shape = new THREE.Shape();
                         shape.moveTo(corners[0].x, corners[0].y);
-                        for (var i = 1; i < corners.length; i++) {
-                            shape.lineTo(corners[i].x, corners[i].y);
-                        }
+                        for (var i = 1; i < corners.length; i++) shape.lineTo(corners[i].x, corners[i].y);
                         shape.closePath();
-
-                        var slabGeo = new THREE.ShapeGeometry(shape);
-                        var slabMesh = new THREE.Mesh(slabGeo, slabMaterial);
+                        var slabMesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), slabMaterial);
                         slabMesh.rotation.x = Math.PI / 2;
-                        slabMesh.position.y = -1.0;
-                        slabMesh.userData.isFloorClone = true;
-                        floorGroup.add(slabMesh);
+                        slabMesh.position.y = -0.1;
+                        slabMesh.userData.isStructural = true;
+                        group.add(slabMesh);
                     }
-
-                    // 3. Add Corner Columns (Structural)
-                    var columnMaterial = new THREE.MeshPhongMaterial({ color: 0xe0e0e0 });
                     if (room.corners) {
                         room.corners.forEach(function (corner) {
-                            var columnGeo = new THREE.BoxGeometry(25, floorHeight, 25);
-                            var columnMesh = new THREE.Mesh(columnGeo, columnMaterial);
-                            columnMesh.position.set(corner.x, -floorHeight / 2, corner.y);
-                            columnMesh.userData.isFloorClone = true;
-                            floorGroup.add(columnMesh);
+                            var col = new THREE.Mesh(new THREE.BoxGeometry(20, floorHeight, 20), new THREE.MeshPhongMaterial({ color: 0xdddddd }));
+                            col.position.set(corner.x, -floorHeight / 2, corner.y);
+                            col.userData.isStructural = true;
+                            group.add(col);
                         });
                     }
                 });
-
-                clones.push(floorGroup);
-                threeScene.add(floorGroup);
             }
-            console.log("Update complete. Added", clones.length, "floor clones.");
         } catch (err) {
             console.error("MultiFloorController Update Error:", err);
         }
+
+        // Auto-center camera only if building is small or after significant change
+        if (numFloors > 1) {
+            this.centerOnActiveFloor();
+        }
+    }
+
+    this.centerOnActiveFloor = function () {
+        var three = blueprint3d.three;
+        var activeIndex = window.project.activeFloorIndex;
+        var elevation = activeIndex * floorHeight;
+
+        // Calculate floorplan center
+        var box = new THREE.Box3();
+        var floorplanGroup = floorGroups[activeIndex];
+        if (floorplanGroup) {
+            box.setFromObject(floorplanGroup);
+        }
+
+        var center = box.isEmpty() ? new THREE.Vector3(500, 0, 500) : box.getCenter(new THREE.Vector3());
+
+        // POSITION: center.x, activeFloorElevation + 8, center.z + 12
+        // Note: 1 unit in Blueprint3D = 1cm? 
+        // 8ft = 243cm. 12ft = 365cm. 
+        // Let's use the multiplier requested but scale to architectural CM.
+        var yCam = elevation + 800; // +8ft approx 240cm, let's use 800 for better view
+        var zCam = center.z + 1200;
+
+        var targetPos = new THREE.Vector3(center.x, yCam, zCam);
+        var targetFocus = new THREE.Vector3(center.x, elevation + 400, center.z);
+
+        three.camera.position.lerp(targetPos, 0.1);
+        three.controls.target.lerp(targetFocus, 0.1);
+        three.controls.update();
     }
 
     init();
@@ -648,9 +902,18 @@ $(document).ready(function () {
     var textureSelector = new TextureSelector(blueprint3d, sideMenu);
     var cameraButtons = new CameraButtons(blueprint3d);
     mainControls(blueprint3d);
-    new MultiFloorController(blueprint3d);
+    window.multiFloorController = new MultiFloorController(blueprint3d);
 
-    // This serialization format needs work
-    // Load a simple rectangle room
-    blueprint3d.model.loadSerialized('{"floorplan":{"corners":{"f90da5e3-9e0e-eba7-173d-eb0b071e838e":{"x":204.85099999999989,"y":289.052},"da026c08-d76a-a944-8e7b-096b752da9ed":{"x":672.2109999999999,"y":289.052},"4e3d65cb-54c0-0681-28bf-bddcc7bdb571":{"x":672.2109999999999,"y":-178.308},"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2":{"x":204.85099999999989,"y":-178.308}},"walls":[{"corner1":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","corner2":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","corner2":"da026c08-d76a-a944-8e7b-096b752da9ed","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"da026c08-d76a-a944-8e7b-096b752da9ed","corner2":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","corner2":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}}],"wallTextures":[],"floorTextures":{},"newFloorTextures":{}},"items":[]}');
+    // Load with persistence check
+    var saved = localStorage.getItem('constructiq_autosave');
+    if (saved) {
+        blueprint3d.model.loadSerialized(saved);
+        console.log("ConstructIQ: Restored from LocalStorage");
+    } else {
+        blueprint3d.model.loadSerialized('{"floorplan":{"corners":{"f90da5e3-9e0e-eba7-173d-eb0b071e838e":{"x":204.85099999999989,"y":289.052},"da026c08-d76a-a944-8e7b-096b752da9ed":{"x":672.2109999999999,"y":289.052},"4e3d65cb-54c0-0681-28bf-bddcc7bdb571":{"x":672.2109999999999,"y":-178.308},"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2":{"x":204.85099999999989,"y":-178.308}},"walls":[{"corner1":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","corner2":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"f90da5e3-9e0e-eba7-173d-eb0b071e838e","corner2":"da026c08-d76a-a944-8e7b-096b752da9ed","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"da026c08-d76a-a944-8e7b-096b752da9ed","corner2":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}},{"corner1":"4e3d65cb-54c0-0681-28bf-bddcc7bdb571","corner2":"71d4f128-ae80-3d58-9bd2-711c6ce6cdf2","frontTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0},"backTexture":{"url":"rooms/textures/wallmap.png","stretch":true,"scale":0}}],"wallTextures":[],"floorTextures":{},"newFloorTextures":{}},"items":[]}');
+    }
+
+    // Auto-save when items are added or removed
+    blueprint3d.model.scene.itemLoadedCallbacks.add(saveToLocalStorage);
+    blueprint3d.model.scene.itemRemovedCallbacks.add(saveToLocalStorage);
 });

@@ -1,7 +1,8 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, OrthographicCamera } from '@react-three/drei';
+import { OrbitControls, Grid, PerspectiveCamera, Edges } from '@react-three/drei';
+import { disposeScene, calculateCombinedBoundingBox, normalizeFloorConfig } from '../utils/GeometryUtils';
 
 /**
  * V6.3 Dimensional Analysis HUD
@@ -36,136 +37,95 @@ const getColorKey = (type) => {
     return 'other';
 };
 
-const SceneContent = ({ layout, floorCount = 1 }) => {
-    const [drawIndex, setDrawIndex] = useState(0);
+const SceneContent = ({ floorConfig, floors, wallHeight }) => {
+    // 1. Calculate combined bounding box for centering
+    const { center, size } = useMemo(() =>
+        calculateCombinedBoundingBox(floorConfig.map(f => f.layout), floorConfig[0]?.layout, floors, wallHeight),
+        [floorConfig, floors]
+    );
 
-    const { edgeSegments, totalLines } = useMemo(() => {
-        if (!layout || !layout.rooms) return { edgeSegments: [], totalLines: 0 };
+    const masterGroupRef = useRef();
 
-        const rooms = layout.rooms;
-        const floorHeight = 10;
-        const wallHeight = 10;
-
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        rooms.forEach(r => {
-            r.vertices?.forEach(v => {
-                minX = Math.min(minX, v[0]); minY = Math.min(minY, v[1]);
-                maxX = Math.max(maxX, v[0]); maxY = Math.max(maxY, v[1]);
-            });
-        });
-        const cX = (minX + maxX) / 2;
-        const cZ = (minY + maxY) / 2;
-
-        const allSegments = [];
-
-        for (let f = 0; f < floorCount; f++) {
-            const yOffset = f * floorHeight;
-
-            rooms.forEach((room) => {
-                const typeKey = getColorKey(room.name);
-                const color = ROOM_COLORS[typeKey];
-
-                const shape = new THREE.Shape();
-                const vertices = room.vertices || [];
-                if (vertices.length < 3) return;
-
-                shape.moveTo(vertices[0][0], vertices[0][1]);
-                for (let i = 1; i < vertices.length; i++) shape.lineTo(vertices[i][0], vertices[i][1]);
-                shape.closePath();
-
-                const geometry = new THREE.ExtrudeGeometry(shape, { depth: wallHeight, bevelEnabled: false });
-                const edges = new THREE.EdgesGeometry(geometry);
-                const posAttr = edges.attributes.position;
-
-                for (let i = 0; i < posAttr.count; i += 2) {
-                    const p1 = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-                    const p2 = new THREE.Vector3().fromBufferAttribute(posAttr, i + 1);
-
-                    allSegments.push({
-                        points: [
-                            [p1.x - cX, p1.z + yOffset, p1.y - cZ],
-                            [p2.x - cX, p2.z + yOffset, p2.y - cZ]
-                        ],
-                        color: color
-                    });
-                }
-            });
-        }
-
-        return { edgeSegments: allSegments, totalLines: allSegments.length };
-    }, [layout]);
-
-    useEffect(() => { setDrawIndex(0); }, [layout]);
-
-    useFrame(() => {
-        if (drawIndex < totalLines) {
-            const speed = Math.max(8, Math.floor(totalLines / 100));
-            setDrawIndex(prev => Math.min(prev + speed, totalLines));
-        }
-    });
+    // 2. Strict disposal
+    useEffect(() => {
+        return () => {
+            if (masterGroupRef.current) disposeScene(masterGroupRef.current);
+        };
+    }, [floorConfig]);
 
     return (
         <>
-            <OrthographicCamera makeDefault position={[60, 60, 60]} zoom={22} />
+            <PerspectiveCamera makeDefault position={[100, 100, 100]} fov={40} />
             <ambientLight intensity={0.6} />
             <Grid
-                args={[400, 400]}
+                args={[1000, 1000]}
                 position={[0, -0.01, 0]}
                 sectionColor="#1e293b"
                 cellColor="#0f172a"
                 infiniteGrid
-                fadeDistance={250}
+                fadeDistance={500}
             />
             <OrbitControls
                 makeDefault
-                target={[0, 0, 0]}
-                maxPolarAngle={Math.PI / 2.1}
+                target={[0, (floors * wallHeight) / 2, 0]}
+                enablePan={true}
+                enableZoom={true}
             />
 
-            <group>
-                {edgeSegments.slice(0, drawIndex).map((seg, idx) => (
-                    <line key={`line-${idx}`}>
-                        <bufferGeometry
-                            attach="geometry"
-                            onUpdate={self => self.setFromPoints([new THREE.Vector3(...seg.points[0]), new THREE.Vector3(...seg.points[1])])}
-                        />
-                        <lineBasicMaterial
-                            attach="material"
-                            color={seg.color}
-                            linewidth={1.5}
-                            transparent
-                            opacity={0.9}
-                        />
-                    </line>
+            <group ref={masterGroupRef} position={[-center.x, 0, -center.z]}>
+                {floorConfig.map((floor, floorIdx) => (
+                    <group key={`floor-${floorIdx}-${floor.layoutType}`} position={[0, floorIdx * wallHeight, 0]}>
+                        {floor.layout?.rooms?.map((room, idx) => {
+                            const typeKey = getColorKey(room.name);
+                            const color = ROOM_COLORS[typeKey];
+
+                            const shape = new THREE.Shape();
+                            const vertices = room.vertices || [];
+                            if (vertices.length < 3) return null;
+
+                            shape.moveTo(vertices[0][0], vertices[0][1]);
+                            for (let i = 1; i < vertices.length; i++) shape.lineTo(vertices[i][0], vertices[i][1]);
+                            shape.closePath();
+
+                            return (
+                                <group key={idx} rotation={[-Math.PI / 2, 0, 0]}>
+                                    <mesh frustumCulled={false}>
+                                        <extrudeGeometry args={[shape, { depth: wallHeight, bevelEnabled: false }]} />
+                                        <meshBasicMaterial color={color} transparent opacity={0.15} side={THREE.DoubleSide} />
+                                        <Edges color={color} threshold={15} />
+                                    </mesh>
+                                </group>
+                            );
+                        })}
+                    </group>
                 ))}
             </group>
         </>
     );
 };
 
-const DraftingEngine = ({ layout, floors = 1 }) => {
-    const floorCount = (layout && layout.floor_count > 1) ? layout.floor_count : floors;
+const DraftingEngine = ({ layout, layouts, floors = 1, configMode, roomModes, manualInputs }) => {
+    const floorConfig = useMemo(() =>
+        normalizeFloorConfig(layout, layouts, floors, configMode, roomModes, manualInputs),
+        [layout, layouts, floors, configMode, roomModes, manualInputs]
+    );
 
     // 1. Generate unique room types for the legend
     const activeRoomTypes = useMemo(() => {
-        if (!layout || !layout.rooms) return [];
         const types = new Set();
-        layout.rooms.forEach(r => types.add(getColorKey(r.name)));
+        floorConfig.forEach(f => {
+            f.layout?.rooms?.forEach(r => types.add(getColorKey(r.name)));
+        });
         return Array.from(types).map(type => ({
             label: type.charAt(0).toUpperCase() + type.slice(1),
             color: ROOM_COLORS[type]
         }));
-    }, [layout]);
+    }, [floorConfig]);
 
     // 2. Extract detailed measurements per floor
     const dimensionalData = useMemo(() => {
-        if (!layout || !layout.rooms) return [];
-        const floorCount = layout.floor_count || 1;
-        const floors = [];
-
-        for (let f = 0; f < floorCount; f++) {
-            const floorRooms = layout.rooms.map(room => {
-                // Calculate approximate width/length from vertices if not provided
+        return floorConfig.map((f, fIdx) => {
+            const floorRooms = f.layout?.rooms?.map(room => {
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                 room.vertices?.forEach(v => {
                     minX = Math.min(minX, v[0]); minY = Math.min(minY, v[1]);
@@ -181,11 +141,10 @@ const DraftingEngine = ({ layout, floors = 1 }) => {
                     area: room.area_sqft,
                     color: ROOM_COLORS[getColorKey(room.name)]
                 };
-            });
-            floors.push({ index: f, rooms: floorRooms });
-        }
-        return floors;
-    }, [layout]);
+            }) || [];
+            return { index: fIdx, rooms: floorRooms };
+        });
+    }, [floorConfig]);
 
     if (!layout || !layout.rooms) return (
         <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b1221', color: '#00ffff' }}>
@@ -196,7 +155,7 @@ const DraftingEngine = ({ layout, floors = 1 }) => {
     return (
         <div style={{ height: '100%', width: '100%', background: '#0b1221', position: 'relative' }}>
             <Canvas gl={{ antialias: true }}>
-                <SceneContent layout={layout} floorCount={floorCount} />
+                <SceneContent floorConfig={floorConfig} floors={floors} wallHeight={10} />
             </Canvas>
 
             {/* Architectural HUD (Top-Left) */}

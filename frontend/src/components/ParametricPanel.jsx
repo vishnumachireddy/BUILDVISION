@@ -22,6 +22,7 @@ const ParametricPanel = ({ onGenerate, loading }) => {
         living: true,
         dining: true,
         balcony: false,
+        parking: 1,
         staircase: 'internal'
     });
 
@@ -30,26 +31,39 @@ const ParametricPanel = ({ onGenerate, loading }) => {
         district: 'Visakhapatnam',
         pinCode: '',
         pinLoading: false,
-        pinError: null
+        pinError: null,
+        manualOverride: false
     });
 
     const [soilType, setSoilType] = useState('Normal Red Soil');
     const [qualityMode, setQualityMode] = useState('Standard');
 
     const handlePinDetection = async (pin) => {
-        if (pin.length !== 6) return;
+        if (pin.length !== 6 || location.manualOverride) return;
+
         setLocation(prev => ({ ...prev, pinLoading: true, pinError: null }));
+
         try {
-            const response = await fetch(`http://localhost:8000/api/detect-location/${pin}`);
-            if (response.ok) {
-                const data = await response.json();
-                setLocation(prev => ({ ...prev, state: data.state, district: data.district, pinLoading: false }));
+            const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+            const data = await response.json();
+
+            if (data[0].Status === "Success") {
+                const info = data[0].PostOffice[0];
+                const newState = info.State;
+                const newDistrict = info.District;
+
+                setLocation(prev => ({
+                    ...prev,
+                    state: newState,
+                    district: newDistrict,
+                    pinLoading: false,
+                    lastDetectedPin: pin
+                }));
             } else {
-                const err = await response.json();
-                setLocation(prev => ({ ...prev, pinError: err.detail, pinLoading: false }));
+                setLocation(prev => ({ ...prev, pinError: "Invalid PIN Code", pinLoading: false }));
             }
         } catch (error) {
-            setLocation(prev => ({ ...prev, pinError: "Connection Error", pinLoading: false }));
+            setLocation(prev => ({ ...prev, pinError: "Network Error", pinLoading: false }));
         }
     };
 
@@ -61,6 +75,7 @@ const ParametricPanel = ({ onGenerate, loading }) => {
             floors: requirements.floors,
             state: location.state,
             district: location.district,
+            pin_code: location.pinCode,
             quality_mode: qualityMode,
             soil_type: soilType
         });
@@ -197,11 +212,17 @@ const ParametricPanel = ({ onGenerate, loading }) => {
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                     <div>
                         <div style={labelStyle}>Bathrooms</div>
                         <select value={requirements.bathrooms} onChange={e => updateReq('bathrooms', parseInt(e.target.value))} style={inputStyle}>
                             {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} Bathroom(s)</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <div style={labelStyle}>Car Parking</div>
+                        <select value={requirements.parking} onChange={e => updateReq('parking', parseInt(e.target.value))} style={inputStyle}>
+                            {[0, 1, 2, 3, 4].map(n => <option key={n} value={n}>{n} Car(s)</option>)}
                         </select>
                     </div>
                 </div>
@@ -244,7 +265,7 @@ const ParametricPanel = ({ onGenerate, loading }) => {
                             value={location.pinCode}
                             onChange={e => {
                                 const val = e.target.value.replace(/\D/g, '');
-                                setLocation(prev => ({ ...prev, pinCode: val }));
+                                setLocation(prev => ({ ...prev, pinCode: val, manualOverride: false })); // Reset override on PIN change
                                 if (val.length === 6) handlePinDetection(val);
                             }}
                             style={{ ...inputStyle, paddingRight: '40px' }}
@@ -264,13 +285,13 @@ const ParametricPanel = ({ onGenerate, loading }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                     <div>
                         <div style={labelStyle}>State</div>
-                        <select value={location.state} onChange={e => setLocation(prev => ({ ...prev, state: e.target.value, district: districts[e.target.value][0] }))} style={inputStyle}>
+                        <select value={location.state} onChange={e => setLocation(prev => ({ ...prev, state: e.target.value, district: districts[e.target.value] ? districts[e.target.value][0] : '', manualOverride: true }))} style={inputStyle}>
                             {states.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
                     <div>
                         <div style={labelStyle}>District</div>
-                        <select value={location.district} onChange={e => setLocation(prev => ({ ...prev, district: e.target.value }))} style={inputStyle}>
+                        <select value={location.district} onChange={e => setLocation(prev => ({ ...prev, district: e.target.value, manualOverride: true }))} style={inputStyle}>
                             {districts[location.state]?.map(d => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
@@ -278,7 +299,7 @@ const ParametricPanel = ({ onGenerate, loading }) => {
 
                 <div style={{ marginBottom: '20px' }}>
                     <div style={labelStyle}>Soil Type</div>
-                    <select value={soilType} onChange={e => setSoilType(e.target.value)} style={inputStyle}>
+                    <select value={soilType} onChange={e => { setSoilType(e.target.value); setLocation(prev => ({ ...prev, manualOverride: true })); }} style={inputStyle}>
                         <option value="Rocky / Hard Soil">Rocky / Hard Soil</option>
                         <option value="Normal Red Soil">Normal Red Soil</option>
                         <option value="Sandy Soil">Sandy Soil</option>
