@@ -833,7 +833,11 @@ function App() {
                             {activeTab === 'blueprint3d' && projectData && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                     {renderFloorOptions()}
-                                    <Blueprint3DWrapper numFloors={numFloors} activeFloorIndex={activeFloorIndex} />
+                                    <Blueprint3DWrapper
+                                        numFloors={numFloors}
+                                        activeFloorIndex={activeFloorIndex}
+                                        layout={(floorConfigMode === 'CUSTOM' && floorRoomModes[activeFloorIndex] === 'MANUAL') ? (floorLayouts[activeFloorIndex] || projectData.layout_plan) : projectData.layout_plan}
+                                    />
                                 </div>
                             )}
 

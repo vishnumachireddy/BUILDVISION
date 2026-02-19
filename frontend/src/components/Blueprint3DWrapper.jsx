@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Blueprint3DWrapper = ({ numFloors = 1, activeFloorIndex = 0 }) => {
+const Blueprint3DWrapper = ({ numFloors = 1, activeFloorIndex = 0, layout = null }) => {
     console.log("Blueprint3DWrapper Rendering - numFloors:", numFloors, "activeFloorIndex:", activeFloorIndex);
     const cacheBuster = React.useMemo(() => Date.now(), []); // Only on mount
     const iframeRef = React.useRef(null);
@@ -25,6 +25,16 @@ const Blueprint3DWrapper = ({ numFloors = 1, activeFloorIndex = 0 }) => {
             }, '*');
         }
     }, [numFloors]);
+
+    React.useEffect(() => {
+        if (layout && iframeRef.current && iframeRef.current.contentWindow) {
+            console.log("Blueprint3DWrapper: Sending LOAD_LAYOUT message");
+            iframeRef.current.contentWindow.postMessage({
+                type: 'LOAD_LAYOUT',
+                layout: layout
+            }, '*');
+        }
+    }, [layout]);
 
     return (
         <div style={{
