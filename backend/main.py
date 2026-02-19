@@ -21,7 +21,9 @@ origins = [
     "http://localhost:5173",
     "http://localhost:8000",
     "https://rad-empanada-262a58.netlify.app",
-    "https://khaki-lines-wait.loca.lt"
+    "https://khaki-lines-wait.loca.lt",
+    "https://smartbuildvision.vercel.app",
+    "*" # Temporary allow all for easier debugging, or add your specific vercel domain
 ]
 
 app.add_middleware(
