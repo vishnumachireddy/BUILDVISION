@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { Upload, FileImage, Cpu, CheckCircle, AlertCircle, Loader2, Sparkles, Box } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 const AIBlueprint = ({ onAnalysisComplete }) => {
     const [file, setFile] = useState(null);
@@ -25,7 +26,7 @@ const AIBlueprint = ({ onAnalysisComplete }) => {
         formData.append('file', file);
 
         try {
-            const response = await axios.post('http://localhost:8000/api/sketch/analyze', formData);
+            const response = await axios.post(`${API_BASE_URL}/api/sketch/analyze`, formData);
             setResult(response.data);
             if (onAnalysisComplete) onAnalysisComplete(response.data);
         } catch (error) {

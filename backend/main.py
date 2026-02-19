@@ -17,12 +17,17 @@ app = FastAPI(
     version="0.2.0"
 )
 
-origins = ["*"]  # Allow all origins during development
+origins = [
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "https://rad-empanada-262a58.netlify.app",
+    "https://khaki-lines-wait.loca.lt"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

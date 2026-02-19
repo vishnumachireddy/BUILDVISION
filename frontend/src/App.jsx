@@ -10,6 +10,7 @@ import ParametricPanel from './components/ParametricPanel'
 import SoilAdvisoryPanel from './components/SoilAdvisoryPanel'
 import LandingPage from './landing/pages/Index'
 import axios from 'axios'
+import { API_BASE_URL } from './config'
 import {
     Ruler, Calculator, Home, Hammer, Banknote, Layers, Box, FileText,
     Menu, X, ChevronRight, TrendingUp, Package, Shield, Info, Download,
@@ -297,7 +298,7 @@ function App() {
                 parking: false
             };
 
-            const response = await axios.post('http://localhost:8000/api/generate-parametric-plan', {
+            const response = await axios.post(`${API_BASE_URL}/api/generate-parametric-plan`, {
                 ...inputs,
                 floors: 1, // Generating single floor layout
                 coordinates: projectData.area_metrics.vertices // Reuse base coordinates
@@ -389,7 +390,7 @@ function App() {
         setLoading(true);
         setErrorMessage(null);
         try {
-            const response = await axios.post('http://localhost:8000/api/generate-plan', {
+            const response = await axios.post(`${API_BASE_URL}/api/generate-plan`, {
                 coordinates: polygonCoords,
                 floors: numFloors
             });
@@ -458,7 +459,7 @@ function App() {
         setLoading(true);
         setErrorMessage(null);
         try {
-            const response = await axios.post('http://localhost:8000/api/generate-parametric-plan', inputs);
+            const response = await axios.post(`${API_BASE_URL}/api/generate-parametric-plan`, inputs);
             if (inputs.floors) setNumFloors(inputs.floors);
 
             // Apply soil multipliers based on selected soilType
@@ -486,7 +487,7 @@ function App() {
         if (!projectData) return;
         setLoading(true);
         try {
-            const response = await axios.post('http://localhost:8000/api/report', {
+            const response = await axios.post(`${API_BASE_URL}/api/report`, {
                 project_data: projectData,
                 floors: numFloors
             }, { responseType: 'blob' });
